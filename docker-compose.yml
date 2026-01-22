@@ -1,0 +1,59 @@
+version: '3.8'
+
+services:
+  # MySQL 数据库
+  mysql:
+    image: mysql:8.0
+    container_name: lingdang-mysql
+    environment:
+      MYSQL_ROOT_PASSWORD: root123456
+      MYSQL_DATABASE: lingdang_blog
+      MYSQL_CHARACTER_SET_SERVER: utf8mb4
+      MYSQL_COLLATION_SERVER: utf8mb4_unicode_ci
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql-data:/var/lib/mysql
+    networks:
+      - lingdang-network
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      timeout: 20s
+      retries: 10
+
+  # 后端服务
+  backend:
+    build: ./backend
+    container_name: lingdang-backend
+    environment:
+      SPRING_PROFILES_ACTIVE: prod
+      SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/lingdang_blog?useSSL=false&serverTimezone=Asia/Shanghai&characterEncoding=utf8
+      SPRING_DATASOURCE_USERNAME: root
+      SPRING_DATASOURCE_PASSWORD: root123456
+    ports:
+      - "8080:8080"
+    depends_on:
+      mysql:
+        condition: service_healthy
+    networks:
+      - lingdang-network
+    restart: unless-stopped
+
+  # 前端服务
+  frontend:
+    build: ./frontend
+    container_name: lingdang-frontend
+    ports:
+      - "80:80"
+    depends_on:
+      - backend
+    networks:
+      - lingdang-network
+    restart: unless-stopped
+
+volumes:
+  mysql-data:
+
+networks:
+  lingdang-network:
+    driver: bridge

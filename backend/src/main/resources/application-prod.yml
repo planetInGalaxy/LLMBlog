@@ -1,0 +1,22 @@
+spring:
+  # MySQL 数据库配置（生产环境）
+  datasource:
+    url: jdbc:mysql://localhost:3306/lingdang_blog?useSSL=false&serverTimezone=Asia/Shanghai&characterEncoding=utf8
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    username: root
+    password: ${DB_PASSWORD:root123456}
+  
+  jpa:
+    database-platform: org.hibernate.dialect.MySQLDialect
+    hibernate:
+      ddl-auto: update
+    show-sql: false
+  
+  h2:
+    console:
+      enabled: false
+
+logging:
+  level:
+    com.lingdang.blog: INFO
+    org.springframework.web: WARN

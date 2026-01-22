@@ -1,0 +1,42 @@
+# Java / Maven
+backend/target/
+backend/*.jar
+backend/*.war
+backend/*.class
+backend/.mvn/
+backend/mvnw
+backend/mvnw.cmd
+
+# Node / NPM
+frontend/node_modules/
+frontend/dist/
+frontend/.vite/
+frontend/npm-debug.log*
+frontend/yarn-debug.log*
+frontend/yarn-error.log*
+
+# IDE
+.idea/
+.vscode/
+*.iml
+*.ipr
+*.iws
+.DS_Store
+
+# Logs
+*.log
+logs/
+
+# Environment
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Docker
+docker/mysql-data/
+
+# Temporary files
+*.tmp
+*.temp
+*.swp
