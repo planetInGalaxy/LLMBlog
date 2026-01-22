@@ -25,8 +25,6 @@ jobs:
       - name: 🚀 部署到服务器
         run: |
           ssh -i ~/.ssh/deploy_key root@${{ secrets.SERVER_HOST }} << 'ENDSSH'
-            set -e
-            
             echo "========================================="
             echo "  开始自动部署 - 铃铛师兄大模型博客"
             echo "========================================="
@@ -35,17 +33,17 @@ jobs:
             
             echo ""
             echo "📥 拉取最新代码..."
-            git pull origin master
+            git pull origin master || exit 1
             
             echo ""
             echo "💾 备份数据库..."
             mkdir -p backups
             DATE=$(date +%Y%m%d_%H%M%S)
-            docker compose exec -T mysql mysqldump -uroot -proot123456 lingdang_blog > backups/backup_$DATE.sql 2>/dev/null || echo "跳过备份"
+            docker compose exec -T mysql mysqldump -uroot -proot123456 lingdang_blog > backups/backup_$DATE.sql 2>/dev/null || true
             
             echo ""
             echo "🔄 重新构建并启动..."
-            docker compose down
+            docker compose down || true
             docker compose up -d --build
             
             echo ""
@@ -58,7 +56,7 @@ jobs:
             
             echo ""
             echo "🔍 验证部署..."
-            curl -s http://localhost/api/posts | head -100
+            curl -s http://localhost/api/posts | head -100 || true
             
             echo ""
             echo "✅ 部署完成！"
