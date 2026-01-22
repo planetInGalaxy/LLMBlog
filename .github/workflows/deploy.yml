@@ -25,6 +25,8 @@ jobs:
       - name: 🚀 部署到服务器
         run: |
           ssh -i ~/.ssh/deploy_key root@${{ secrets.SERVER_HOST }} bash << 'ENDSSH'
+            set -x
+            
             echo "========================================="
             echo "  开始自动部署 - 铃铛师兄大模型博客"
             echo "========================================="
@@ -43,7 +45,7 @@ jobs:
             echo "💾 备份数据库..."
             mkdir -p backups
             DATE=$(date +%Y%m%d_%H%M%S)
-            docker compose exec -T mysql mysqldump -uroot -proot123456 lingdang_blog 2>/dev/null > backups/backup_$DATE.sql || echo "备份失败，继续部署"
+            sh -c "docker compose exec -T mysql mysqldump -uroot -proot123456 lingdang_blog > backups/backup_$DATE.sql 2>&1" || echo "⚠️ 备份失败，继续部署"
             
             echo ""
             echo "🔄 停止旧服务..."
