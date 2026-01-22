@@ -18,8 +18,10 @@ fi
 # 1. 更新系统
 echo ""
 echo "步骤 1/6: 更新系统..."
+export DEBIAN_FRONTEND=noninteractive
+export NEEDRESTART_MODE=a
 apt-get update -y
-apt-get upgrade -y
+apt-get upgrade -y -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confold"
 
 # 2. 安装 Docker
 echo ""
