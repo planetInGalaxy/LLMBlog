@@ -24,7 +24,7 @@ jobs:
       
       - name: 🚀 部署到服务器
         run: |
-          ssh -i ~/.ssh/deploy_key root@${{ secrets.SERVER_HOST }} << 'ENDSSH'
+          ssh -i ~/.ssh/deploy_key root@${{ secrets.SERVER_HOST }} bash << 'ENDSSH'
             echo "========================================="
             echo "  开始自动部署 - 铃铛师兄大模型博客"
             echo "========================================="
@@ -33,32 +33,56 @@ jobs:
             
             echo ""
             echo "📥 拉取最新代码..."
-            git pull origin master || exit 1
+            git pull origin master
+            if [ $? -ne 0 ]; then
+              echo "❌ 拉取代码失败"
+              exit 1
+            fi
             
             echo ""
             echo "💾 备份数据库..."
             mkdir -p backups
             DATE=$(date +%Y%m%d_%H%M%S)
-            docker compose exec -T mysql mysqldump -uroot -proot123456 lingdang_blog > backups/backup_$DATE.sql 2>/dev/null || true
+            docker compose exec -T mysql mysqldump -uroot -proot123456 lingdang_blog 2>/dev/null > backups/backup_$DATE.sql || echo "备份失败，继续部署"
             
             echo ""
-            echo "🔄 重新构建并启动..."
-            docker compose down || true
-            docker compose up -d --build
+            echo "🔄 停止旧服务..."
+            docker compose down
+            
+            echo ""
+            echo "🏗️ 重新构建镜像..."
+            docker compose build --no-cache
+            
+            echo ""
+            echo "🚀 启动所有服务..."
+            docker compose up -d
             
             echo ""
             echo "⏳ 等待服务启动..."
-            sleep 25
+            sleep 30
             
             echo ""
             echo "📊 检查服务状态..."
             docker compose ps
             
             echo ""
-            echo "🔍 验证部署..."
-            curl -s http://localhost/api/posts | head -100 || true
+            echo "🔍 验证后端API..."
+            if curl -f -s http://localhost:8080/api/posts > /dev/null 2>&1; then
+              echo "✅ 后端正常"
+            else
+              echo "⚠️ 后端可能未就绪"
+            fi
             
             echo ""
+            echo "🔍 验证前端..."
+            if curl -f -s http://localhost > /dev/null 2>&1; then
+              echo "✅ 前端正常"
+            else
+              echo "⚠️ 前端可能未就绪"
+            fi
+            
+            echo ""
+            echo "========================================="
             echo "✅ 部署完成！"
             echo "========================================="
           ENDSSH
