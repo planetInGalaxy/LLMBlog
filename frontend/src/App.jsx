@@ -160,7 +160,8 @@ function App() {
       <footer className="footer">
         <div className="container">
           <p>© 2026 铃铛师兄大模型 | 专注AI技术分享</p>
-          <p>关键词：铃铛师兄大模型、AI技术、大模型应用、机器学习</p>
+          <p>关键词：AI技术、大模型应用、机器学习</p>
+          <p>请小红书搜索：铃铛师兄大模型求职辅导，获取更多干货</p>
         </div>
       </footer>
     </div>

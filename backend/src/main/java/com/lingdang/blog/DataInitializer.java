@@ -17,6 +17,14 @@ public class DataInitializer implements CommandLineRunner {
     
     @Override
     public void run(String... args) {
+        // 检查数据库是否已有数据
+        if (blogPostRepository.count() > 0) {
+            System.out.println("=================================");
+            System.out.println("数据库已有 " + blogPostRepository.count() + " 篇文章，跳过初始化");
+            System.out.println("=================================");
+            return;
+        }
+        
         // 创建示例文章
         BlogPost post1 = new BlogPost();
         post1.setTitle("欢迎来到铃铛师兄大模型博客");
