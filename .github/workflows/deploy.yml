@@ -24,8 +24,8 @@ jobs:
       
       - name: 🚀 部署到服务器
         run: |
-          ssh -i ~/.ssh/deploy_key root@${{ secrets.SERVER_HOST }} bash << 'ENDSSH'
-            set -x
+          ssh -i ~/.ssh/deploy_key root@${{ secrets.SERVER_HOST }} 'bash -s' << 'ENDSSH'
+            set -e
             
             echo "========================================="
             echo "  开始自动部署 - 铃铛师兄大模型博客"
@@ -36,20 +36,10 @@ jobs:
             echo ""
             echo "📥 拉取最新代码..."
             git pull origin master
-            if [ $? -ne 0 ]; then
-              echo "❌ 拉取代码失败"
-              exit 1
-            fi
-            
-            echo ""
-            echo "💾 备份数据库..."
-            mkdir -p backups
-            DATE=$(date +%Y%m%d_%H%M%S)
-            sh -c "docker compose exec -T mysql mysqldump -uroot -proot123456 lingdang_blog > backups/backup_$DATE.sql 2>&1" || echo "⚠️ 备份失败，继续部署"
             
             echo ""
             echo "🔄 停止旧服务..."
-            docker compose down
+            docker compose down || true
             
             echo ""
             echo "🏗️ 重新构建镜像..."
@@ -69,19 +59,11 @@ jobs:
             
             echo ""
             echo "🔍 验证后端API..."
-            if curl -f -s http://localhost:8080/api/posts > /dev/null 2>&1; then
-              echo "✅ 后端正常"
-            else
-              echo "⚠️ 后端可能未就绪"
-            fi
+            curl -f -s http://localhost:8080/api/posts | head -20 || echo "⚠️ 后端未就绪"
             
             echo ""
             echo "🔍 验证前端..."
-            if curl -f -s http://localhost > /dev/null 2>&1; then
-              echo "✅ 前端正常"
-            else
-              echo "⚠️ 前端可能未就绪"
-            fi
+            curl -f -s http://localhost > /dev/null && echo "✅ 前端正常" || echo "⚠️ 前端未就绪"
             
             echo ""
             echo "========================================="
