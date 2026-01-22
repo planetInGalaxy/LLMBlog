@@ -1,0 +1,77 @@
+name: 🚀 自动部署到腾讯云
+
+on:
+  push:
+    branches:
+      - master
+      - main
+
+jobs:
+  deploy:
+    name: 部署到服务器
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: 📥 检出代码
+        uses: actions/checkout@v4
+      
+      - name: 🔐 配置 SSH
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.SERVER_SSH_KEY }}" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          ssh-keyscan -H ${{ secrets.SERVER_HOST }} >> ~/.ssh/known_hosts
+      
+      - name: 🚀 部署到服务器
+        run: |
+          ssh -i ~/.ssh/deploy_key root@${{ secrets.SERVER_HOST }} << 'ENDSSH'
+            set -e
+            
+            echo "========================================="
+            echo "  开始自动部署 - 铃铛师兄大模型博客"
+            echo "========================================="
+            
+            cd /root/app/LLMBlog
+            
+            echo ""
+            echo "📥 拉取最新代码..."
+            git pull origin master
+            
+            echo ""
+            echo "💾 备份数据库..."
+            mkdir -p backups
+            DATE=$(date +%Y%m%d_%H%M%S)
+            docker compose exec -T mysql mysqldump -uroot -proot123456 lingdang_blog > backups/backup_$DATE.sql 2>/dev/null || echo "跳过备份"
+            
+            echo ""
+            echo "🔄 重新构建并启动..."
+            docker compose down
+            docker compose up -d --build
+            
+            echo ""
+            echo "⏳ 等待服务启动..."
+            sleep 25
+            
+            echo ""
+            echo "📊 检查服务状态..."
+            docker compose ps
+            
+            echo ""
+            echo "🔍 验证部署..."
+            curl -s http://localhost/api/posts | head -100
+            
+            echo ""
+            echo "✅ 部署完成！"
+            echo "========================================="
+          ENDSSH
+      
+      - name: ✅ 部署成功通知
+        if: success()
+        run: |
+          echo "🎉 部署成功！"
+          echo "访问地址: http://${{ secrets.SERVER_HOST }}"
+      
+      - name: ❌ 部署失败通知
+        if: failure()
+        run: |
+          echo "❌ 部署失败，请检查日志"
