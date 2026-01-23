@@ -1,5 +1,6 @@
 package com.lingdang.blog.dto.llm;
 
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import lombok.Data;
 
@@ -9,6 +10,7 @@ import java.util.List;
  * ChatCompletion API 响应
  */
 @Data
+@JsonIgnoreProperties(ignoreUnknown = true)
 public class ChatCompletionResponse {
     
     private String id;
@@ -19,6 +21,7 @@ public class ChatCompletionResponse {
     private Usage usage;
     
     @Data
+    @JsonIgnoreProperties(ignoreUnknown = true)
     public static class Choice {
         private Integer index;
         private ChatCompletionRequest.ChatMessage message;
@@ -27,6 +30,7 @@ public class ChatCompletionResponse {
     }
     
     @Data
+    @JsonIgnoreProperties(ignoreUnknown = true)
     public static class Usage {
         @JsonProperty("prompt_tokens")
         private Integer promptTokens;
