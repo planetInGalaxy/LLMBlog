@@ -126,13 +126,11 @@ public class RagService {
         try {
             SearchResponse<ChunkDocument> response = esClient.search(s -> s
                 .index("lingdang_chunks_v1")
-                .query(q -> q
-                    .knn(k -> k
-                        .field("embedding")
-                        .queryVector(floatArrayToList(embedding))
-                        .k(topK)
-                        .numCandidates(100)
-                    )
+                .knn(k -> k
+                    .field("embedding")
+                    .queryVector(floatArrayToList(embedding))
+                    .k(topK)
+                    .numCandidates(100)
                 )
                 .size(topK),
                 ChunkDocument.class
