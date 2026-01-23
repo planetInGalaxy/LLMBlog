@@ -1,20 +1,23 @@
 package com.lingdang.blog.model;
 
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import lombok.Data;
 import org.springframework.data.annotation.Id;
 import org.springframework.data.elasticsearch.annotations.Document;
 import org.springframework.data.elasticsearch.annotations.Field;
 import org.springframework.data.elasticsearch.annotations.FieldType;
-import org.springframework.data.elasticsearch.annotations.Setting;
 
 /**
  * Elasticsearch 文档实体（对应索引中的 chunk 文档）
  * 
  * 注意：索引会由 ElasticsearchInitializer 在应用启动时自动创建
  * 不使用 @Setting 注解，避免与手动创建索引冲突
+ * 
+ * @JsonIgnoreProperties(ignoreUnknown = true) 用于忽略 ES 自动添加的 _class 字段
  */
 @Data
 @Document(indexName = "lingdang_chunks_v1")
+@JsonIgnoreProperties(ignoreUnknown = true)
 public class ChunkDocument {
     
     /**
