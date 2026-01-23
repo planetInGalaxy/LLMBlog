@@ -133,6 +133,141 @@ nav a:hover {
   flex-wrap: wrap;
 }
 
+/* ========== 关于介绍区 ========== */
+.about-section {
+  background: var(--card-bg);
+  padding: 3rem;
+  border-radius: var(--radius-lg);
+  margin-bottom: 3rem;
+  box-shadow: var(--shadow);
+  text-align: left;
+}
+
+.section-header {
+  text-align: center;
+  margin-bottom: 3rem;
+  padding-bottom: 1rem;
+  border-bottom: 3px solid var(--primary-color);
+}
+
+.section-header h2 {
+  font-size: 2.5rem;
+  color: var(--text-color);
+  margin: 0;
+}
+
+.about-content {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 2rem;
+  margin-bottom: 3rem;
+}
+
+.about-card {
+  background: var(--bg-color);
+  padding: 2rem;
+  border-radius: var(--radius);
+  border-left: 4px solid var(--primary-color);
+  transition: transform 0.3s, box-shadow 0.3s;
+}
+
+.about-card:hover {
+  transform: translateY(-5px);
+  box-shadow: var(--shadow-lg);
+}
+
+.about-card h3 {
+  font-size: 1.5rem;
+  color: var(--primary-color);
+  margin-bottom: 1rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.about-card p {
+  color: var(--text-color);
+  line-height: 1.8;
+  margin: 0;
+  font-size: 1.05rem;
+}
+
+.about-card strong {
+  color: var(--secondary-color);
+  font-weight: 600;
+}
+
+.keywords-section {
+  background: linear-gradient(135deg, rgba(99, 102, 241, 0.1) 0%, rgba(168, 85, 247, 0.1) 100%);
+  padding: 2rem;
+  border-radius: var(--radius);
+  text-align: center;
+}
+
+.keywords-section strong {
+  display: block;
+  font-size: 1.2rem;
+  color: var(--text-color);
+  margin-bottom: 1rem;
+}
+
+.keyword-tags {
+  display: flex;
+  gap: 0.8rem;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
+.keyword-tag {
+  background: white;
+  color: var(--primary-color);
+  padding: 0.6rem 1.2rem;
+  border-radius: 999px;
+  font-size: 1rem;
+  font-weight: 600;
+  border: 2px solid var(--primary-color);
+  transition: all 0.3s;
+  cursor: default;
+}
+
+.keyword-tag:hover {
+  background: var(--primary-color);
+  color: white;
+  transform: scale(1.05);
+}
+
+/* ========== 联系方式区 ========== */
+.contact-section {
+  background: linear-gradient(135deg, var(--text-color) 0%, #1a1a2e 100%);
+  color: white;
+  padding: 2.5rem 3rem;
+  border-radius: var(--radius-lg);
+  margin-bottom: 2rem;
+  box-shadow: var(--shadow-lg);
+  text-align: center;
+}
+
+.contact-section h3 {
+  font-size: 1.8rem;
+  margin-bottom: 1rem;
+  font-weight: 700;
+}
+
+.contact-highlight {
+  font-size: 1.2rem;
+  margin: 0;
+  line-height: 1.6;
+}
+
+.contact-highlight strong {
+  color: var(--secondary-color);
+  font-weight: 700;
+  font-size: 1.3rem;
+  text-decoration: underline;
+  text-decoration-color: var(--secondary-color);
+  text-decoration-thickness: 2px;
+}
+
 /* 按钮样式 */
 .btn {
   padding: 0.8rem 2rem;
