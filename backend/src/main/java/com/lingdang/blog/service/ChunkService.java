@@ -196,6 +196,23 @@ public class ChunkService {
     }
     
     /**
+     * 原子替换文章的所有 chunks（删除旧的 + 保存新的）
+     * 用于重新索引时避免唯一键冲突
+     */
+    public void replaceChunks(Long articleId, List<ArticleChunk> newChunks) {
+        // 1. 删除旧 chunks
+        articleChunkRepository.deleteByArticleId(articleId);
+        log.info("删除旧 chunks: article_id={}", articleId);
+        
+        // 2. 立即 flush，确保 DELETE 操作执行完成
+        articleChunkRepository.flush();
+        
+        // 3. 保存新 chunks
+        articleChunkRepository.saveAll(newChunks);
+        log.info("保存新 chunks: article_id={}, count={}", articleId, newChunks.size());
+    }
+    
+    /**
      * Chunk 草稿（内部使用）
      */
     @Data

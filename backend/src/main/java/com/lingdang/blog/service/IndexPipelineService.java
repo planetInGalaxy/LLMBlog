@@ -163,11 +163,8 @@ public class IndexPipelineService {
             job.setChunksGenerated(chunks.size());
             ragIndexJobRepository.save(job);
             
-            // 3. 删除旧 chunks（MySQL）
-            chunkService.deleteChunksByArticleId(article.getId());
-            
-            // 4. 保存新 chunks（MySQL）
-            chunkService.saveChunks(chunks);
+            // 3. 原子替换 chunks（删除旧的 + 保存新的，避免唯一键冲突）
+            chunkService.replaceChunks(article.getId(), chunks);
             
             // 5. 生成 embeddings
             List<ChunkDocument> documents = new ArrayList<>();
