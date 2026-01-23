@@ -400,7 +400,17 @@ function AssistantPage() {
                                   {children}
                                 </code>
                               );
-                            }
+                            },
+                            // 确保段落、标题等元素正确渲染
+                            p: ({children}) => <p>{children}</p>,
+                            h1: ({children}) => <h1>{children}</h1>,
+                            h2: ({children}) => <h2>{children}</h2>,
+                            h3: ({children}) => <h3>{children}</h3>,
+                            ul: ({children}) => <ul>{children}</ul>,
+                            ol: ({children}) => <ol>{children}</ol>,
+                            li: ({children}) => <li>{children}</li>,
+                            strong: ({children}) => <strong>{children}</strong>,
+                            em: ({children}) => <em>{children}</em>,
                           }}
                         >
                           {msg.content || '思考中...'}
