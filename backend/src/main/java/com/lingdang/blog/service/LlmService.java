@@ -220,6 +220,9 @@ public class LlmService {
      * Chat Completion 流式输出
      */
     public void chatCompletionStream(List<ChatCompletionRequest.ChatMessage> messages, Integer maxTokens, StreamCallback callback) throws IOException {
+        log.info("开始 LLM 流式请求: model={}, messages_count={}, max_tokens={}", 
+            llmConfig.getChatModel(), messages.size(), maxTokens);
+        
         ChatCompletionRequest request = new ChatCompletionRequest(
             llmConfig.getChatModel(),
             messages,
@@ -229,6 +232,7 @@ public class LlmService {
         
         // 添加 stream 参数
         String requestBody = objectMapper.writeValueAsString(request).replace("}", ",\"stream\":true}");
+        log.debug("LLM 请求体: {}", requestBody.length() > 500 ? requestBody.substring(0, 500) + "..." : requestBody);
         
         Request httpRequest = new Request.Builder()
             .url(llmConfig.getBaseUrl() + "/chat/completions")
@@ -239,19 +243,25 @@ public class LlmService {
         
         try (Response response = getHttpClient().newCall(httpRequest).execute()) {
             if (!response.isSuccessful()) {
-                throw new IOException("LLM 流式请求失败: " + response.code());
+                String errorBody = response.body() != null ? response.body().string() : "Unknown";
+                log.error("LLM 流式请求失败: code={}, error={}", response.code(), errorBody);
+                throw new IOException("LLM 流式请求失败: " + response.code() + " - " + errorBody);
             }
+            
+            log.info("LLM 流式响应开始接收");
             
             // 逐行读取流式响应
             java.io.BufferedReader reader = new java.io.BufferedReader(
                 new java.io.InputStreamReader(response.body().byteStream())
             );
             
+            int chunkCount = 0;
             String line;
             while ((line = reader.readLine()) != null) {
                 if (line.startsWith("data: ")) {
                     String data = line.substring(6).trim();
                     if ("[DONE]".equals(data)) {
+                        log.info("LLM 流式响应完成: 共接收 {} 个 chunks", chunkCount);
                         break;
                     }
                     try {
@@ -261,14 +271,21 @@ public class LlmService {
                             var delta = choices.get(0).get("delta");
                             if (delta != null && delta.has("content")) {
                                 String content = delta.get("content").asText();
+                                chunkCount++;
+                                if (chunkCount <= 5 || chunkCount % 50 == 0) {
+                                    log.debug("接收 LLM chunk #{}: '{}'", chunkCount, content);
+                                }
                                 callback.onChunk(content);
                             }
                         }
                     } catch (Exception e) {
-                        log.warn("解析流式响应失败: {}", data, e);
+                        log.warn("解析流式响应失败: data={}", data, e);
                     }
                 }
             }
+        } catch (IOException e) {
+            log.error("LLM 流式请求异常", e);
+            throw e;
         }
     }
     

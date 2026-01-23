@@ -256,42 +256,60 @@ function AssistantPage() {
       const decoder = new TextDecoder();
       let buffer = '';
       let fullAnswer = '';
+      let currentEvent = null;
+      let citations = [];
 
       while (true) {
         const { done, value } = await reader.read();
         if (done) break;
 
         buffer += decoder.decode(value, { stream: true });
-        const lines = buffer.split('\n');
-        buffer = lines.pop(); // 保留未完成的行
+        const lines = buffer.split('\n\n');
+        buffer = lines.pop(); // 保留未完成的消息块
 
-        for (const line of lines) {
-          if (line.startsWith('data: ')) {
-            const data = line.slice(6).trim();
-            if (data === '[DONE]') continue;
-            
+        for (const block of lines) {
+          if (!block.trim()) continue;
+          
+          const blockLines = block.split('\n');
+          let eventType = 'message';
+          let eventData = '';
+          
+          for (const line of blockLines) {
+            if (line.startsWith('event:')) {
+              eventType = line.slice(6).trim();
+            } else if (line.startsWith('data:')) {
+              eventData = line.slice(5).trim();
+            }
+          }
+          
+          // 处理不同类型的事件
+          if (eventType === 'message' && eventData) {
+            fullAnswer += eventData;
+            setMessages(prev => {
+              const updated = [...prev];
+              updated[updated.length - 1].content = fullAnswer;
+              return updated;
+            });
+          } else if (eventType === 'citations' && eventData) {
             try {
-              // 简单文本直接追加
-              fullAnswer += data;
+              citations = JSON.parse(eventData);
               setMessages(prev => {
                 const updated = [...prev];
-                updated[updated.length - 1].content = fullAnswer;
+                updated[updated.length - 1].citations = citations;
                 return updated;
               });
             } catch (e) {
-              // 忽略解析错误
+              console.warn('解析 citations 失败:', e);
             }
-          } else if (line.includes('event: citations')) {
-            // 下一行可能是引用数据
-          } else if (line.includes('event: done')) {
+          } else if (eventType === 'done') {
             setMessages(prev => {
               const updated = [...prev];
               updated[updated.length - 1].streaming = false;
               return updated;
             });
             setLoading(false);
-          } else if (line.includes('event: error')) {
-            throw new Error('服务器错误');
+          } else if (eventType === 'error') {
+            throw new Error(eventData || '服务器错误');
           }
         }
       }

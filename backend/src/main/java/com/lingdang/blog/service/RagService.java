@@ -410,15 +410,23 @@ public class RagService {
         long startTime = System.currentTimeMillis();
         
         try {
+            log.info("收到流式查询请求: request_id={}, question={}, mode={}", 
+                requestId, request.getQuestion(), request.getMode());
+            
             // 1. 生成 embedding
             float[] queryEmbedding = llmService.generateEmbedding(request.getQuestion());
+            log.debug("Embedding 生成完成: request_id={}, dim={}", requestId, queryEmbedding.length);
             
             // 2. 混合检索
             List<RetrievalResult> results = hybridSearch(request.getQuestion(), queryEmbedding);
+            log.info("检索完成: request_id={}, 检索到 {} 条结果", requestId, 
+                results != null ? results.size() : 0);
             
             // 3. 判断模式
             boolean hasArticles = results != null && !results.isEmpty();
             boolean isFlexibleMode = "FLEXIBLE".equalsIgnoreCase(request.getMode());
+            log.info("查询模式: request_id={}, hasArticles={}, isFlexibleMode={}", 
+                requestId, hasArticles, isFlexibleMode);
             
             // 4. 构建消息列表（包含历史对话）
             List<ChatCompletionRequest.ChatMessage> messages = new ArrayList<>();
@@ -442,16 +450,24 @@ public class RagService {
             
             // 5. 流式调用 LLM
             if (hasArticles || isFlexibleMode) {
+                log.info("开始流式生成: request_id={}", requestId);
+                final int[] chunkCount = {0};
+                
                 llmService.chatCompletionStream(messages, 2048, (chunk) -> {
                     try {
+                        chunkCount[0]++;
                         emitter.send(SseEmitter.event()
                             .name("message")
                             .data(chunk));
                     } catch (IOException e) {
-                        log.error("发送 SSE 失败", e);
+                        log.error("发送 SSE chunk 失败: request_id={}, chunk_index={}", 
+                            requestId, chunkCount[0], e);
                     }
                 });
+                
+                log.info("流式生成完成: request_id={}, 共发送 {} 个 chunks", requestId, chunkCount[0]);
             } else {
+                log.info("ARTICLE_ONLY 模式且无检索结果，返回提示信息: request_id={}", requestId);
                 emitter.send(SseEmitter.event()
                     .name("message")
                     .data("抱歉，文章库中未找到与您问题相关的内容。"));
@@ -460,26 +476,31 @@ public class RagService {
             // 6. 发送引用
             if (hasArticles) {
                 List<AssistantResponse.Citation> citations = extractCitations(results);
+                log.info("发送引用: request_id={}, citations={}", requestId, citations.size());
                 emitter.send(SseEmitter.event()
                     .name("citations")
                     .data(new ObjectMapper().writeValueAsString(citations)));
             }
             
             // 7. 完成
+            long latency = System.currentTimeMillis() - startTime;
+            log.info("查询完成: request_id={}, latency={}ms", requestId, latency);
             emitter.send(SseEmitter.event()
                 .name("done")
-                .data("{\"latencyMs\":" + (System.currentTimeMillis() - startTime) + "}"));
+                .data("{\"latencyMs\":" + latency + "}"));
             emitter.complete();
             
         } catch (Exception e) {
-            log.error("RAG 流式查询失败: request_id={}", requestId, e);
+            log.error("RAG 流式查询失败: request_id={}, question={}, error={}", 
+                requestId, request.getQuestion(), e.getMessage(), e);
             try {
+                String errorMsg = e.getMessage() != null ? e.getMessage() : "未知错误";
                 emitter.send(SseEmitter.event()
                     .name("error")
-                    .data("{\"message\":\"" + e.getMessage() + "\"}"));
+                    .data("{\"message\":\"" + errorMsg.replace("\"", "\\\"") + "\"}"));
                 emitter.complete();
             } catch (IOException ex) {
-                log.error("发送错误失败", ex);
+                log.error("发送错误信息失败: request_id={}", requestId, ex);
             }
         }
     }
