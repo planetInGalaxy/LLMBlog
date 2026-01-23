@@ -140,8 +140,21 @@ jobs:
             docker exec lingdang-ollama ollama list | grep nomic-embed-text && echo "✅ Ollama 模型正常" || echo "⚠️ Ollama 模型缺失"
             
             echo ""
-            echo "🔍 验证后端 API..."
-            curl -f -s http://localhost:8080/api/health | head -20 || echo "⚠️ 后端未就绪"
+            echo "🔍 等待后端启动（Spring Boot 需要时间）..."
+            for i in {1..30}; do
+              if curl -f -s http://localhost:8080/api/health > /dev/null 2>&1; then
+                echo "✅ 后端 API 已就绪（等待 ${i} 秒）"
+                curl -s http://localhost:8080/api/health | head -20
+                break
+              fi
+              if [ $i -eq 30 ]; then
+                echo "⚠️ 后端启动超时，查看日志..."
+                docker logs lingdang-backend 2>&1 | tail -30
+              else
+                echo "⏳ 等待后端启动... ($i/30)"
+                sleep 2
+              fi
+            done
             
             echo ""
             echo "🔍 验证前端..."
