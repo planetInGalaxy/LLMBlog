@@ -256,60 +256,60 @@ function AssistantPage() {
       const decoder = new TextDecoder();
       let buffer = '';
       let fullAnswer = '';
-      let currentEvent = null;
       let citations = [];
 
       while (true) {
         const { done, value } = await reader.read();
         if (done) break;
 
+        // 解码新数据
         buffer += decoder.decode(value, { stream: true });
-        const lines = buffer.split('\n\n');
-        buffer = lines.pop(); // 保留未完成的消息块
-
-        for (const block of lines) {
-          if (!block.trim()) continue;
+        
+        // 按行处理
+        const lines = buffer.split('\n');
+        buffer = lines.pop() || ''; // 保留未完成的行
+        
+        let currentEvent = 'message';
+        
+        for (const line of lines) {
+          if (!line.trim()) continue;
           
-          const blockLines = block.split('\n');
-          let eventType = 'message';
-          let eventData = '';
-          
-          for (const line of blockLines) {
-            if (line.startsWith('event:')) {
-              eventType = line.slice(6).trim();
-            } else if (line.startsWith('data:')) {
-              eventData = line.slice(5).trim();
-            }
-          }
-          
-          // 处理不同类型的事件
-          if (eventType === 'message' && eventData) {
-            fullAnswer += eventData;
-            setMessages(prev => {
-              const updated = [...prev];
-              updated[updated.length - 1].content = fullAnswer;
-              return updated;
-            });
-          } else if (eventType === 'citations' && eventData) {
-            try {
-              citations = JSON.parse(eventData);
+          if (line.startsWith('event:')) {
+            currentEvent = line.slice(6).trim();
+          } else if (line.startsWith('data:')) {
+            const data = line.slice(5).trim();
+            
+            if (!data) continue; // 跳过空数据
+            
+            // 处理不同类型的事件
+            if (currentEvent === 'message') {
+              fullAnswer += data;
               setMessages(prev => {
                 const updated = [...prev];
-                updated[updated.length - 1].citations = citations;
+                updated[updated.length - 1].content = fullAnswer;
                 return updated;
               });
-            } catch (e) {
-              console.warn('解析 citations 失败:', e);
+            } else if (currentEvent === 'citations') {
+              try {
+                citations = JSON.parse(data);
+                setMessages(prev => {
+                  const updated = [...prev];
+                  updated[updated.length - 1].citations = citations;
+                  return updated;
+                });
+              } catch (e) {
+                console.warn('解析 citations 失败:', e);
+              }
+            } else if (currentEvent === 'done') {
+              setMessages(prev => {
+                const updated = [...prev];
+                updated[updated.length - 1].streaming = false;
+                return updated;
+              });
+              setLoading(false);
+            } else if (currentEvent === 'error') {
+              throw new Error(data || '服务器错误');
             }
-          } else if (eventType === 'done') {
-            setMessages(prev => {
-              const updated = [...prev];
-              updated[updated.length - 1].streaming = false;
-              return updated;
-            });
-            setLoading(false);
-          } else if (eventType === 'error') {
-            throw new Error(eventData || '服务器错误');
           }
         }
       }
@@ -379,30 +379,32 @@ function AssistantPage() {
                     <p className="error-text">{msg.content}</p>
                   ) : (
                     <>
-                      <ReactMarkdown
-                        remarkPlugins={[remarkGfm]}
-                        components={{
-                          code({ node, inline, className, children, ...props }) {
-                            const match = /language-(\w+)/.exec(className || '');
-                            return !inline && match ? (
-                              <SyntaxHighlighter
-                                style={vscDarkPlus}
-                                language={match[1]}
-                                PreTag="div"
-                                {...props}
-                              >
-                                {String(children).replace(/\n$/, '')}
-                              </SyntaxHighlighter>
-                            ) : (
-                              <code className={className} {...props}>
-                                {children}
-                              </code>
-                            );
-                          }
-                        }}
-                      >
-                        {msg.content || '思考中...'}
-                      </ReactMarkdown>
+                      <div className="markdown-body">
+                        <ReactMarkdown
+                          remarkPlugins={[remarkGfm]}
+                          components={{
+                            code({ node, inline, className, children, ...props }) {
+                              const match = /language-(\w+)/.exec(className || '');
+                              return !inline && match ? (
+                                <SyntaxHighlighter
+                                  style={vscDarkPlus}
+                                  language={match[1]}
+                                  PreTag="div"
+                                  {...props}
+                                >
+                                  {String(children).replace(/\n$/, '')}
+                                </SyntaxHighlighter>
+                              ) : (
+                                <code className={className} {...props}>
+                                  {children}
+                                </code>
+                              );
+                            }
+                          }}
+                        >
+                          {msg.content || '思考中...'}
+                        </ReactMarkdown>
+                      </div>
                       
                       {msg.citations && msg.citations.length > 0 && (
                         <div className="citations">

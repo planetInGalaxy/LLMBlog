@@ -256,12 +256,13 @@ public class LlmService {
             );
             
             int chunkCount = 0;
+            int emptyCount = 0;
             String line;
             while ((line = reader.readLine()) != null) {
                 if (line.startsWith("data: ")) {
                     String data = line.substring(6).trim();
                     if ("[DONE]".equals(data)) {
-                        log.info("LLM 流式响应完成: 共接收 {} 个 chunks", chunkCount);
+                        log.info("LLM 流式响应完成: 共接收 {} 个有效 chunks, {} 个空 chunks", chunkCount, emptyCount);
                         break;
                     }
                     try {
@@ -271,11 +272,17 @@ public class LlmService {
                             var delta = choices.get(0).get("delta");
                             if (delta != null && delta.has("content")) {
                                 String content = delta.get("content").asText();
-                                chunkCount++;
-                                if (chunkCount <= 5 || chunkCount % 50 == 0) {
-                                    log.debug("接收 LLM chunk #{}: '{}'", chunkCount, content);
+                                
+                                // 过滤空内容，不发送给前端
+                                if (content != null && !content.isEmpty()) {
+                                    chunkCount++;
+                                    if (chunkCount <= 5 || chunkCount % 50 == 0) {
+                                        log.debug("接收 LLM chunk #{}: '{}'", chunkCount, content);
+                                    }
+                                    callback.onChunk(content);
+                                } else {
+                                    emptyCount++;
                                 }
-                                callback.onChunk(content);
                             }
                         }
                     } catch (Exception e) {
