@@ -10,7 +10,7 @@ echo "🔧 Elasticsearch 索引修复脚本"
 echo "========================================="
 
 # 检查 ES 容器是否运行
-if ! docker ps | grep -q lingdang-es; then
+if ! docker ps | grep -q lingdang-elasticsearch; then
     echo "❌ Elasticsearch 容器未运行"
     exit 1
 fi
@@ -23,7 +23,7 @@ sleep 5
 
 # 检查 ES 健康状态
 echo "🔍 检查 Elasticsearch 健康状态..."
-docker exec lingdang-es curl -s http://localhost:9200/_cluster/health || {
+docker exec lingdang-elasticsearch curl -s http://localhost:9200/_cluster/health || {
     echo "❌ Elasticsearch 未响应"
     exit 1
 }
@@ -34,13 +34,13 @@ echo "📊 当前索引状态"
 echo "========================================="
 
 # 检查索引是否存在
-INDEX_EXISTS=$(docker exec lingdang-es curl -s -o /dev/null -w "%{http_code}" http://localhost:9200/lingdang_chunks_v1)
+INDEX_EXISTS=$(docker exec lingdang-elasticsearch curl -s -o /dev/null -w "%{http_code}" http://localhost:9200/lingdang_chunks_v1)
 
 if [ "$INDEX_EXISTS" = "200" ]; then
     echo "✅ 索引 lingdang_chunks_v1 已存在"
     echo ""
     echo "📈 索引统计信息:"
-    docker exec lingdang-es curl -s http://localhost:9200/lingdang_chunks_v1/_count | jq
+    docker exec lingdang-elasticsearch curl -s http://localhost:9200/lingdang_chunks_v1/_count | jq
     echo ""
     echo "🔧 是否要删除并重建索引？(y/N)"
     read -r response
@@ -50,8 +50,8 @@ if [ "$INDEX_EXISTS" = "200" ]; then
     fi
     
     echo "🗑️  删除旧索引..."
-    docker exec lingdang-es curl -X DELETE http://localhost:9200/lingdang_chunks_v1
-    docker exec lingdang-es curl -X DELETE http://localhost:9200/lingdang_chunks_current 2>/dev/null || true
+    docker exec lingdang-elasticsearch curl -X DELETE http://localhost:9200/lingdang_chunks_v1
+    docker exec lingdang-elasticsearch curl -X DELETE http://localhost:9200/lingdang_chunks_current 2>/dev/null || true
     echo "✅ 旧索引已删除"
 else
     echo "⚠️  索引 lingdang_chunks_v1 不存在，将创建新索引"
@@ -110,7 +110,7 @@ EOF
 )
 
 # 创建索引
-echo "$CHUNK_SETTINGS" | docker exec -i lingdang-es curl -X PUT -H "Content-Type: application/json" \
+echo "$CHUNK_SETTINGS" | docker exec -i lingdang-elasticsearch curl -X PUT -H "Content-Type: application/json" \
     http://localhost:9200/lingdang_chunks_v1 -d @- || {
     echo "❌ 索引创建失败"
     exit 1
@@ -121,7 +121,7 @@ echo "✅ 索引 lingdang_chunks_v1 创建成功"
 
 # 创建别名
 echo "🔗 创建索引别名..."
-docker exec lingdang-es curl -X POST -H "Content-Type: application/json" \
+docker exec lingdang-elasticsearch curl -X POST -H "Content-Type: application/json" \
     http://localhost:9200/_aliases -d '{
   "actions": [
     {
@@ -144,7 +144,7 @@ echo "📊 验证索引"
 echo "========================================="
 
 # 验证索引
-docker exec lingdang-es curl -s http://localhost:9200/lingdang_chunks_v1/_mapping | jq
+docker exec lingdang-elasticsearch curl -s http://localhost:9200/lingdang_chunks_v1/_mapping | jq
 
 echo ""
 echo "========================================="
