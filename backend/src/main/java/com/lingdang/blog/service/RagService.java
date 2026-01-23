@@ -39,6 +39,12 @@ public class RagService {
     
     private final ObjectMapper objectMapper = new ObjectMapper();
     
+    // 相关度阈值：只有 >= 80% 的文章才会被引用
+    private static final double RELEVANCE_THRESHOLD = 0.8;
+    
+    // 最多引用文章数：前 3 篇
+    private static final int MAX_CITATIONS = 3;
+    
     // System Prompt
     private static final String SYSTEM_PROMPT_WITH_ARTICLES = """
         你是铃铛师兄大模型博客的智能助手。你的任务是基于提供的文章片段回答用户的问题。
@@ -83,11 +89,16 @@ public class RagService {
             // 2. 混合检索（向量 + BM25）
             List<RetrievalResult> results = hybridSearch(request.getQuestion(), queryEmbedding);
             
-            // 3. 判断模式和是否有检索结果
-            boolean hasArticles = results != null && !results.isEmpty();
+            // 3. 过滤高相关度文章（>= 80%）
+            List<RetrievalResult> highRelevanceResults = filterHighRelevanceResults(results);
+            log.info("相关度过滤: 检索到 {} 条结果, 高相关度（>=80%）{} 条", 
+                results != null ? results.size() : 0, highRelevanceResults.size());
+            
+            // 4. 判断模式和是否有高相关度检索结果
+            boolean hasArticles = !highRelevanceResults.isEmpty();
             boolean isFlexibleMode = "FLEXIBLE".equalsIgnoreCase(request.getMode());
             
-            // 4. 构建消息列表（包含历史对话）
+            // 5. 构建消息列表（包含历史对话）
             List<ChatCompletionRequest.ChatMessage> messages = new ArrayList<>();
             
             // 添加系统提示
@@ -107,10 +118,10 @@ public class RagService {
             
             // 添加当前问题
             String userPrompt = hasArticles ? 
-                buildPrompt(request.getQuestion(), results) : request.getQuestion();
+                buildPrompt(request.getQuestion(), highRelevanceResults) : request.getQuestion();
             messages.add(new ChatCompletionRequest.ChatMessage("user", userPrompt));
             
-            // 5. 调用 LLM
+            // 6. 调用 LLM
             String answer;
             List<AssistantResponse.Citation> citations;
             ChatCompletionResponse llmResponse;
@@ -118,23 +129,23 @@ public class RagService {
             if (hasArticles || isFlexibleMode) {
                 llmResponse = llmService.chatCompletionWithUsage(messages, 2048);
                 answer = llmResponse.getChoices().get(0).getMessage().getContent();
-                citations = hasArticles ? extractCitations(results) : new ArrayList<>();
+                citations = hasArticles ? extractCitations(highRelevanceResults) : new ArrayList<>();
             } else {
-                // ARTICLE_ONLY 模式且无文章：返回未找到
-                answer = "抱歉，文章库中未找到与您问题相关的内容。您可以尝试换个问法，或者查看文章列表选择感兴趣的文章阅读。";
+                // ARTICLE_ONLY 模式且无高相关度文章：返回未找到
+                answer = "抱歉，文章库中未找到与您问题高度相关的内容（相关度 < 80%）。您可以尝试换个问法，或者查看文章列表选择感兴趣的文章阅读。";
                 citations = new ArrayList<>();
                 llmResponse = null;
             }
             
-            // 6. 构建响应
+            // 7. 构建响应
             AssistantResponse response = new AssistantResponse();
             response.setAnswer(answer);
             response.setCitations(citations);
             response.setQueryId(requestId);
             response.setLatencyMs((int) (System.currentTimeMillis() - startTime));
             
-            // 7. 记录日志
-            logQuery(requestId, clientIp, request, results, llmResponse, response, true);
+            // 8. 记录日志
+            logQuery(requestId, clientIp, request, highRelevanceResults, llmResponse, response, true);
             
             return response;
             
@@ -366,11 +377,24 @@ public class RagService {
     }
     
     /**
-     * 提取引用
+     * 过滤高相关度文章（>= 80%，最多前 3 篇）
+     */
+    private List<RetrievalResult> filterHighRelevanceResults(List<RetrievalResult> results) {
+        if (results == null || results.isEmpty()) {
+            return new ArrayList<>();
+        }
+        
+        return results.stream()
+            .filter(r -> r.getFinalScore() >= RELEVANCE_THRESHOLD)
+            .limit(MAX_CITATIONS)
+            .collect(Collectors.toList());
+    }
+    
+    /**
+     * 提取引用（只提取已经过滤的高相关度文章）
      */
     private List<AssistantResponse.Citation> extractCitations(List<RetrievalResult> results) {
         return results.stream()
-            .limit(6)
             .map(result -> {
                 AssistantResponse.Citation citation = new AssistantResponse.Citation();
                 citation.setTitle(result.getTitle());
@@ -378,7 +402,7 @@ public class RagService {
                     (result.getAnchor() != null && !result.getAnchor().isEmpty() ? "#" + result.getAnchor() : ""));
                 citation.setQuote(""); // 不显示文章内容，只显示标题
                 citation.setChunkId(result.getChunkId());
-                citation.setScore(result.getFinalScore()); // 已归一化到 0.0 ~ 1.0
+                citation.setScore(result.getFinalScore()); // 已归一化到 0.0 ~ 1.0，且 >= 0.8
                 return citation;
             })
             .collect(Collectors.toList());
@@ -465,13 +489,18 @@ public class RagService {
             log.info("检索完成: request_id={}, 检索到 {} 条结果", requestId, 
                 results != null ? results.size() : 0);
             
-            // 3. 判断模式
-            boolean hasArticles = results != null && !results.isEmpty();
+            // 3. 过滤高相关度文章（>= 80%）
+            List<RetrievalResult> highRelevanceResults = filterHighRelevanceResults(results);
+            log.info("相关度过滤: request_id={}, 检索到 {} 条结果, 高相关度（>=80%）{} 条", 
+                requestId, results != null ? results.size() : 0, highRelevanceResults.size());
+            
+            // 4. 判断模式
+            boolean hasArticles = !highRelevanceResults.isEmpty();
             boolean isFlexibleMode = "FLEXIBLE".equalsIgnoreCase(request.getMode());
-            log.info("查询模式: request_id={}, hasArticles={}, isFlexibleMode={}", 
+            log.info("查询模式: request_id={}, hasHighRelevanceArticles={}, isFlexibleMode={}", 
                 requestId, hasArticles, isFlexibleMode);
             
-            // 4. 构建消息列表（包含历史对话）
+            // 5. 构建消息列表（包含历史对话）
             List<ChatCompletionRequest.ChatMessage> messages = new ArrayList<>();
             
             String systemPrompt = (hasArticles || !isFlexibleMode) ? 
@@ -488,12 +517,13 @@ public class RagService {
             }
             
             String userPrompt = hasArticles ? 
-                buildPrompt(request.getQuestion(), results) : request.getQuestion();
+                buildPrompt(request.getQuestion(), highRelevanceResults) : request.getQuestion();
             messages.add(new ChatCompletionRequest.ChatMessage("user", userPrompt));
             
-            // 5. 流式调用 LLM
+            // 6. 流式调用 LLM
             if (hasArticles || isFlexibleMode) {
-                log.info("开始流式生成: request_id={}", requestId);
+                log.info("开始流式生成: request_id={}, 基于 {} 篇高相关度文章", 
+                    requestId, hasArticles ? highRelevanceResults.size() : 0);
                 final int[] chunkCount = {0};
                 
                 llmService.chatCompletionStream(messages, 2048, (chunk) -> {
@@ -510,15 +540,15 @@ public class RagService {
                 
                 log.info("流式生成完成: request_id={}, 共发送 {} 个 chunks", requestId, chunkCount[0]);
             } else {
-                log.info("ARTICLE_ONLY 模式且无检索结果，返回提示信息: request_id={}", requestId);
+                log.info("ARTICLE_ONLY 模式且无高相关度文章，返回提示信息: request_id={}", requestId);
                 emitter.send(SseEmitter.event()
                     .name("message")
-                    .data("抱歉，文章库中未找到与您问题相关的内容。"));
+                    .data("抱歉，文章库中未找到与您问题高度相关的内容（相关度 < 80%）。"));
             }
             
-            // 6. 发送引用
+            // 7. 发送引用
             if (hasArticles) {
-                List<AssistantResponse.Citation> citations = extractCitations(results);
+                List<AssistantResponse.Citation> citations = extractCitations(highRelevanceResults);
                 log.info("发送引用: request_id={}, citations={}", requestId, citations.size());
                 emitter.send(SseEmitter.event()
                     .name("citations")
