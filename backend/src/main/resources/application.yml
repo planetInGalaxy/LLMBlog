@@ -27,6 +27,37 @@ spring:
 
 server:
   port: 8080
+
+# Elasticsearch 配置
+elasticsearch:
+  host: ${ELASTICSEARCH_HOST:localhost}
+  port: ${ELASTICSEARCH_PORT:9200}
+
+# LLM 配置
+llm:
+  base-url: ${LLM_BASE_URL:https://api.openai.com/v1}
+  api-key: ${LLM_API_KEY:your-api-key-here}
+  embedding-model: ${LLM_EMBEDDING_MODEL:text-embedding-3-small}
+  chat-model: ${LLM_CHAT_MODEL:gpt-4o-mini}
+  ollama-base-url: ${LLM_OLLAMA_BASE_URL:http://ollama:11434}
+  use-ollama-embedding: ${LLM_USE_OLLAMA_EMBEDDING:false}
+  connect-timeout: 30000
+  read-timeout: 60000
+
+# JWT 配置
+jwt:
+  secret: ${JWT_SECRET:lingdang-blog-jwt-secret-key-change-in-production}
+  expiration: 86400000
+
+# 管理员配置
+admin:
+  username: ${ADMIN_USERNAME:admin}
+  password: ${ADMIN_PASSWORD:admin123456}
+
+# 限流配置
+rate-limit:
+  assistant:
+    permits-per-hour: 30
   
 # 日志配置
 logging:
@@ -34,3 +65,4 @@ logging:
     com.lingdang.blog: DEBUG
     org.springframework.web: INFO
     org.hibernate: INFO
+    org.springframework.data.elasticsearch: DEBUG

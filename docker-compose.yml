@@ -19,6 +19,49 @@ services:
       timeout: 20s
       retries: 10
 
+  # Elasticsearch 8.x
+  elasticsearch:
+    image: elasticsearch:8.11.3
+    container_name: lingdang-elasticsearch
+    environment:
+      - discovery.type=single-node
+      - xpack.security.enabled=false
+      - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
+      - bootstrap.memory_lock=true
+    ulimits:
+      memlock:
+        soft: -1
+        hard: -1
+    ports:
+      - "9200:9200"
+      - "9300:9300"
+    volumes:
+      - es-data:/usr/share/elasticsearch/data
+    networks:
+      - lingdang-network
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:9200/_cluster/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+  # Ollama 本地 LLM 服务
+  ollama:
+    image: ollama/ollama:latest
+    container_name: lingdang-ollama
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama-data:/root/.ollama
+    networks:
+      - lingdang-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:11434/api/version"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
   # 后端服务
   backend:
     build: ./backend
@@ -28,10 +71,25 @@ services:
       SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/lingdang_blog?useSSL=false&serverTimezone=Asia/Shanghai&characterEncoding=utf8&allowPublicKeyRetrieval=true
       SPRING_DATASOURCE_USERNAME: root
       SPRING_DATASOURCE_PASSWORD: root123456
+      ELASTICSEARCH_HOST: elasticsearch
+      ELASTICSEARCH_PORT: 9200
+      LLM_BASE_URL: ${LLM_BASE_URL:-https://api.openai.com/v1}
+      LLM_API_KEY: ${LLM_API_KEY:-your-api-key-here}
+      LLM_EMBEDDING_MODEL: ${LLM_EMBEDDING_MODEL:-text-embedding-3-small}
+      LLM_CHAT_MODEL: ${LLM_CHAT_MODEL:-gpt-4o-mini}
+      LLM_OLLAMA_BASE_URL: ${LLM_OLLAMA_BASE_URL:-http://ollama:11434}
+      LLM_USE_OLLAMA_EMBEDDING: ${LLM_USE_OLLAMA_EMBEDDING:-false}
+      ADMIN_USERNAME: ${ADMIN_USERNAME:-admin}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-admin123456}
+      JWT_SECRET: ${JWT_SECRET:-lingdang-blog-jwt-secret-key-change-in-production}
     ports:
       - "8080:8080"
     depends_on:
       mysql:
+        condition: service_healthy
+      elasticsearch:
+        condition: service_healthy
+      ollama:
         condition: service_healthy
     networks:
       - lingdang-network
@@ -51,6 +109,8 @@ services:
 
 volumes:
   mysql-data:
+  es-data:
+  ollama-data:
 
 networks:
   lingdang-network:

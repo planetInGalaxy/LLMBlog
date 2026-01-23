@@ -16,7 +16,37 @@ spring:
     console:
       enabled: false
 
+# Elasticsearch 配置（生产环境）
+elasticsearch:
+  host: ${ELASTICSEARCH_HOST:elasticsearch}
+  port: ${ELASTICSEARCH_PORT:9200}
+
+# LLM 配置（生产环境）
+llm:
+  base-url: ${LLM_BASE_URL:https://api.openai.com/v1}
+  api-key: ${LLM_API_KEY}
+  embedding-model: ${LLM_EMBEDDING_MODEL:text-embedding-3-small}
+  chat-model: ${LLM_CHAT_MODEL:gpt-4o-mini}
+  connect-timeout: 30000
+  read-timeout: 90000
+
+# JWT 配置（生产环境）
+jwt:
+  secret: ${JWT_SECRET}
+  expiration: 86400000
+
+# 管理员配置（生产环境）
+admin:
+  username: ${ADMIN_USERNAME:admin}
+  password: ${ADMIN_PASSWORD}
+
+# 限流配置
+rate-limit:
+  assistant:
+    permits-per-hour: ${RATE_LIMIT_ASSISTANT:30}
+
 logging:
   level:
     com.lingdang.blog: INFO
     org.springframework.web: WARN
+    org.springframework.data.elasticsearch: INFO
