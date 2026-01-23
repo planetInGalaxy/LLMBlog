@@ -101,23 +101,9 @@ public class ElasticsearchInitializer {
                 }
             }
             
-            log.info("索引不存在，开始创建: {}", INDEX_NAME);
-            
-            // 读取索引配置文件
-            ClassPathResource resource = new ClassPathResource("elasticsearch/chunk-settings.json");
-            String settings;
-            try (InputStream is = resource.getInputStream()) {
-                settings = new String(is.readAllBytes(), StandardCharsets.UTF_8);
-            }
-            
-            // 创建索引
-            CreateIndexRequest request = CreateIndexRequest.of(c -> c
-                .index(INDEX_NAME)
-                .withJson(new java.io.StringReader(settings))
-            );
-            
-            esClient.indices().create(request);
-            log.info("✅ 索引创建成功: {}", INDEX_NAME);
+            log.info("索引不存在，Spring Data Elasticsearch 将自动创建");
+            log.info("提示：索引会在首次使用 ChunkDocumentRepository 时自动创建");
+            log.info("提示：请在 Studio 执行「全量重建索引」来触发索引创建和数据导入");
             log.info("=== Elasticsearch 索引初始化完成 ===");
             
         } catch (Exception e) {
