@@ -35,7 +35,7 @@ COPY src ./src
 RUN mvn clean package -DskipTests -B
 
 # 运行阶段：只包含运行时需要的文件
-FROM eclipse-temurin:17-jre-slim
+FROM eclipse-temurin:17-jre-alpine
 
 # 设置工作目录
 WORKDIR /app
