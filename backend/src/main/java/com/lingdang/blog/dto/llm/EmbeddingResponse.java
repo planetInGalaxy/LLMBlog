@@ -1,5 +1,6 @@
 package com.lingdang.blog.dto.llm;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
 import lombok.Data;
 
 import java.util.List;
@@ -24,7 +25,9 @@ public class EmbeddingResponse {
     
     @Data
     public static class Usage {
+        @JsonProperty("prompt_tokens")
         private Integer promptTokens;
+        @JsonProperty("total_tokens")
         private Integer totalTokens;
     }
 }
