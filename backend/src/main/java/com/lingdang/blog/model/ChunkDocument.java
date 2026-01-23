@@ -83,8 +83,13 @@ public class ChunkDocument {
     
     /**
      * 向量嵌入（dense_vector）
+     * 维度说明：
+     * - OpenAI text-embedding-3-small: 1536 维
+     * - Ollama nomic-embed-text: 768 维
+     * - Ollama mxbai-embed-large: 1024 维
+     * 根据实际使用的 embedding 模型配置维度
      */
-    @Field(type = FieldType.Dense_Vector, dims = 1536)
+    @Field(type = FieldType.Dense_Vector, dims = 768)
     private float[] embedding;
     
     /**

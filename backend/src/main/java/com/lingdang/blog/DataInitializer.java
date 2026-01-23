@@ -17,10 +17,12 @@ public class DataInitializer implements CommandLineRunner {
     
     @Override
     public void run(String... args) {
-        // 检查数据库是否已有数据
-        if (blogPostRepository.count() > 0) {
+        // 检查数据库是否已有示例博客数据
+        long count = blogPostRepository.count();
+        if (count > 0) {
             System.out.println("=================================");
-            System.out.println("数据库已有 " + blogPostRepository.count() + " 篇文章，跳过初始化");
+            System.out.println("数据库已有 " + count + " 篇示例博客，跳过示例数据初始化");
+            System.out.println("（注：这是旧版博客的示例数据，不是 Studio 中管理的文章）");
             System.out.println("=================================");
             return;
         }
@@ -94,7 +96,8 @@ public class DataInitializer implements CommandLineRunner {
         
         System.out.println("=================================");
         System.out.println("铃铛师兄大模型博客系统启动成功！");
-        System.out.println("已初始化 " + blogPostRepository.count() + " 篇示例文章");
+        System.out.println("已初始化 " + blogPostRepository.count() + " 篇示例博客（旧版博客数据）");
+        System.out.println("提示：请在 Studio 中创建和管理文章，然后执行索引");
         System.out.println("=================================");
     }
 }
