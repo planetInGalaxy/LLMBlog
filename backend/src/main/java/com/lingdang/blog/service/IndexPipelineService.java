@@ -51,10 +51,20 @@ public class IndexPipelineService {
     private static final String INDEX_NAME = "lingdang_chunks_v1";
     
     /**
-     * 触发索引（发布时调用）
+     * 触发索引（发布时调用）- 会检查内容是否变化
      */
     @Transactional
     public Long triggerIndex(Long articleId) {
+        return triggerIndex(articleId, false);
+    }
+    
+    /**
+     * 触发索引
+     * @param articleId 文章 ID
+     * @param force 是否强制索引（true=不检查内容变化，false=检查内容变化）
+     */
+    @Transactional
+    public Long triggerIndex(Long articleId, boolean force) {
         Article article = articleRepository.findById(articleId)
             .orElseThrow(() -> new RuntimeException("文章不存在: " + articleId));
         
@@ -72,10 +82,15 @@ public class IndexPipelineService {
         // 计算 content_hash
         String contentHash = DigestUtils.sha256Hex(article.getContentMarkdown());
         
-        // 检查是否需要重新索引
-        if (contentHash.equals(article.getContentHash())) {
+        // 非强制模式：检查内容是否变化
+        if (!force && contentHash.equals(article.getContentHash())) {
             log.info("文章内容未变化，跳过索引: article_id={}", articleId);
             return null;
+        }
+        
+        // 强制模式：记录日志
+        if (force) {
+            log.info("强制重新索引: article_id={}", articleId);
         }
         
         // 检查是否有正在运行的任务
@@ -220,19 +235,19 @@ public class IndexPipelineService {
      */
     @Transactional
     public Long reindex(Long articleId) {
+        log.info("执行强制重新索引: article_id={}", articleId);
+        
         Article article = articleRepository.findById(articleId)
             .orElseThrow(() -> new RuntimeException("文章不存在: " + articleId));
         
-        // 强制更新 index_version
-        article.setIndexVersion(article.getIndexVersion() + 1);
+        // 检查文章状态，只索引已发布的文章
+        if (article.getStatus() != ArticleStatus.PUBLISHED) {
+            log.warn("文章未发布，跳过索引: article_id={}, status={}", articleId, article.getStatus());
+            throw new RuntimeException("只能对已发布的文章执行索引操作");
+        }
         
-        // 重新计算 content_hash
-        String contentHash = DigestUtils.sha256Hex(article.getContentMarkdown());
-        article.setContentHash(contentHash);
-        
-        articleRepository.save(article);
-        
-        return triggerIndex(articleId);
+        // 强制索引：使用 force=true，跳过内容变化检查
+        return triggerIndex(articleId, true);
     }
     
     /**
