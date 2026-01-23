@@ -88,35 +88,38 @@ public class RagService {
             boolean hasArticles = results != null && !results.isEmpty();
             boolean isFlexibleMode = "FLEXIBLE".equalsIgnoreCase(request.getMode());
             
+            // 4. 构建消息列表（包含历史对话）
+            List<ChatCompletionRequest.ChatMessage> messages = new ArrayList<>();
+            
+            // 添加系统提示
+            String systemPrompt = (hasArticles || !isFlexibleMode) ? 
+                SYSTEM_PROMPT_WITH_ARTICLES : SYSTEM_PROMPT_FLEXIBLE;
+            messages.add(new ChatCompletionRequest.ChatMessage("system", systemPrompt));
+            
+            // 添加历史对话
+            if (request.getHistory() != null && !request.getHistory().isEmpty()) {
+                for (AssistantRequest.ChatMessage historyMsg : request.getHistory()) {
+                    messages.add(new ChatCompletionRequest.ChatMessage(
+                        historyMsg.getRole(), 
+                        historyMsg.getContent()
+                    ));
+                }
+            }
+            
+            // 添加当前问题
+            String userPrompt = hasArticles ? 
+                buildPrompt(request.getQuestion(), results) : request.getQuestion();
+            messages.add(new ChatCompletionRequest.ChatMessage("user", userPrompt));
+            
+            // 5. 调用 LLM
             String answer;
             List<AssistantResponse.Citation> citations;
             ChatCompletionResponse llmResponse;
             
-            if (hasArticles) {
-                // 有文章：基于文章回答
-                String userPrompt = buildPrompt(request.getQuestion(), results);
-                String systemPrompt = isFlexibleMode ? SYSTEM_PROMPT_FLEXIBLE : SYSTEM_PROMPT_WITH_ARTICLES;
-                
-                List<ChatCompletionRequest.ChatMessage> messages = Arrays.asList(
-                    new ChatCompletionRequest.ChatMessage("system", systemPrompt),
-                    new ChatCompletionRequest.ChatMessage("user", userPrompt)
-                );
-                
+            if (hasArticles || isFlexibleMode) {
                 llmResponse = llmService.chatCompletionWithUsage(messages, 2048);
                 answer = llmResponse.getChoices().get(0).getMessage().getContent();
-                citations = extractCitations(results);
-                
-            } else if (isFlexibleMode) {
-                // FLEXIBLE 模式且无文章：直接回答
-                List<ChatCompletionRequest.ChatMessage> messages = Arrays.asList(
-                    new ChatCompletionRequest.ChatMessage("system", SYSTEM_PROMPT_FLEXIBLE),
-                    new ChatCompletionRequest.ChatMessage("user", request.getQuestion())
-                );
-                
-                llmResponse = llmService.chatCompletionWithUsage(messages, 2048);
-                answer = llmResponse.getChoices().get(0).getMessage().getContent();
-                citations = new ArrayList<>();
-                
+                citations = hasArticles ? extractCitations(results) : new ArrayList<>();
             } else {
                 // ARTICLE_ONLY 模式且无文章：返回未找到
                 answer = "抱歉，文章库中未找到与您问题相关的内容。您可以尝试换个问法，或者查看文章列表选择感兴趣的文章阅读。";

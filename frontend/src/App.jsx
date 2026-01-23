@@ -231,12 +231,20 @@ function AssistantPage() {
     setLoading(true);
 
     try {
+      // 构建历史对话（只发送用户和助手的对话内容，不包括系统消息和引用）
+      const history = messages.map(msg => ({
+        role: msg.role,
+        content: msg.content
+      }));
+
+      // 调用 API（非流式，但支持多轮对话）
       const response = await fetch(`${API_URL}/assistant/query`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
+        body: JSON.stringify({
           question: userMessage,
-          mode: 'FLEXIBLE'
+          mode: 'FLEXIBLE',
+          history: history  // 发送历史对话
         })
       });
 
@@ -269,7 +277,6 @@ function AssistantPage() {
         };
         return updated;
       });
-    } finally {
       setLoading(false);
     }
   };
