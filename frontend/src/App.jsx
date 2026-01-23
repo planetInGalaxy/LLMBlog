@@ -1,5 +1,9 @@
-import { Routes, Route, Link, useNavigate } from 'react-router-dom';
+import { Routes, Route, Link, useNavigate, useParams } from 'react-router-dom';
 import { useState, useEffect } from 'react';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
+import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
+import { vscDarkPlus } from 'react-syntax-highlighter/dist/esm/styles/prism';
 import './App.css';
 
 // API 配置
@@ -44,7 +48,7 @@ function BlogListPage() {
     }
   };
 
-  if (loading) return <div className="loading">加载中...</div>;
+  if (loading) return <div className="loading">加载中</div>;
 
   return (
     <div className="blog-list-page">
@@ -61,6 +65,83 @@ function BlogListPage() {
           </Link>
         ))}
       </div>
+    </div>
+  );
+}
+
+// ==================== 文章详情页 ====================
+function BlogDetailPage() {
+  const { slug } = useParams();
+  const [article, setArticle] = useState(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    fetchArticle();
+  }, [slug]);
+
+  const fetchArticle = async () => {
+    try {
+      const response = await fetch(`${API_URL}/articles/${slug}`);
+      const result = await response.json();
+      if (result.success) {
+        setArticle(result.data);
+      }
+    } catch (error) {
+      console.error('获取文章失败:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  if (loading) return <div className="loading">加载中</div>;
+  if (!article) return <div className="error">文章不存在</div>;
+
+  return (
+    <div className="blog-detail-page">
+      <article className="article-content">
+        <header className="article-header">
+          <h1>{article.title}</h1>
+          <div className="article-meta">
+            <span>作者：{article.author}</span>
+            <span>{new Date(article.publishedAt).toLocaleDateString()}</span>
+            <span>{article.viewCount} 次浏览</span>
+          </div>
+          {article.tags && (
+            <div className="article-tags">
+              {article.tags.split(',').map((tag, idx) => (
+                <span key={idx} className="tag">{tag.trim()}</span>
+              ))}
+            </div>
+          )}
+        </header>
+        
+        <div className="markdown-body">
+          <ReactMarkdown
+            remarkPlugins={[remarkGfm]}
+            components={{
+              code({ node, inline, className, children, ...props }) {
+                const match = /language-(\w+)/.exec(className || '');
+                return !inline && match ? (
+                  <SyntaxHighlighter
+                    style={vscDarkPlus}
+                    language={match[1]}
+                    PreTag="div"
+                    {...props}
+                  >
+                    {String(children).replace(/\n$/, '')}
+                  </SyntaxHighlighter>
+                ) : (
+                  <code className={className} {...props}>
+                    {children}
+                  </code>
+                );
+              }
+            }}
+          >
+            {article.contentMarkdown}
+          </ReactMarkdown>
+        </div>
+      </article>
     </div>
   );
 }
@@ -389,6 +470,7 @@ function App() {
           <Routes>
             <Route path="/" element={<HomePage />} />
             <Route path="/blog" element={<BlogListPage />} />
+            <Route path="/blog/:slug" element={<BlogDetailPage />} />
             <Route path="/assistant" element={<AssistantPage />} />
             <Route path="/studio/login" element={<StudioLogin />} />
             <Route path="/studio/articles" element={<StudioArticleList />} />
