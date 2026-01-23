@@ -42,8 +42,10 @@ jobs:
             docker compose down || true
             
             echo ""
-            echo "🏗️ 重新构建镜像..."
-            docker compose build --no-cache
+            echo "🏗️ 重新构建镜像（使用缓存加速）..."
+            # 使用缓存构建，只有在依赖变化时才重新下载
+            # 如果需要完全重建，可以添加 --no-cache 参数
+            docker compose build
             
             echo ""
             echo "🚀 启动所有服务..."

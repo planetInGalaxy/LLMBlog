@@ -1,0 +1,29 @@
+# Maven
+target/
+.mvn/
+mvnw
+mvnw.cmd
+
+# IDE
+.idea/
+.vscode/
+*.iml
+*.iws
+*.ipr
+
+# 日志
+*.log
+
+# 临时文件
+*.tmp
+*.bak
+*.swp
+*~
+
+# Git
+.git/
+.gitignore
+
+# 其他
+.DS_Store
+README.md
