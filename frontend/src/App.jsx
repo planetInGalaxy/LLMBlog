@@ -283,6 +283,7 @@ function AssistantPage() {
             
             // 处理不同类型的事件
             if (currentEvent === 'message') {
+              // 直接添加数据块，实现流畅的流式效果
               fullAnswer += data;
               setMessages(prev => {
                 const updated = [...prev];
@@ -414,7 +415,9 @@ function AssistantPage() {
                               <a href={cite.url} target="_blank" rel="noopener noreferrer">
                                 <strong>{cite.title}</strong>
                               </a>
-                              <p className="citation-quote">"{cite.quote}"</p>
+                              {cite.quote && cite.quote.trim() && (
+                                <p className="citation-quote">"{cite.quote}"</p>
+                              )}
                               <span className="citation-score">相关度: {(cite.score * 100).toFixed(0)}%</span>
                             </div>
                           ))}

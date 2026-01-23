@@ -320,9 +320,26 @@ public class RagService {
             }
         }
         
-        // 重排序：0.7 * vector + 0.3 * bm25
+        // 找出最大分数用于归一化
+        double maxVectorScore = merged.values().stream()
+            .mapToDouble(RetrievalResult::getVectorScore)
+            .max()
+            .orElse(1.0);
+        
+        double maxBm25Score = merged.values().stream()
+            .mapToDouble(RetrievalResult::getBm25Score)
+            .max()
+            .orElse(1.0);
+        
+        // 归一化并重排序：0.7 * normalized_vector + 0.3 * normalized_bm25
+        // 最终分数范围：0.0 ~ 1.0
         return merged.values().stream()
-            .peek(r -> r.setFinalScore(0.7 * r.getVectorScore() + 0.3 * r.getBm25Score()))
+            .peek(r -> {
+                double normalizedVector = maxVectorScore > 0 ? r.getVectorScore() / maxVectorScore : 0.0;
+                double normalizedBm25 = maxBm25Score > 0 ? r.getBm25Score() / maxBm25Score : 0.0;
+                double finalScore = 0.7 * normalizedVector + 0.3 * normalizedBm25;
+                r.setFinalScore(finalScore);
+            })
             .sorted((a, b) -> Double.compare(b.getFinalScore(), a.getFinalScore()))
             .limit(topK)
             .collect(Collectors.toList());
@@ -359,9 +376,9 @@ public class RagService {
                 citation.setTitle(result.getTitle());
                 citation.setUrl("/blog/" + result.getSlug() + 
                     (result.getAnchor() != null && !result.getAnchor().isEmpty() ? "#" + result.getAnchor() : ""));
-                citation.setQuote(truncate(result.getChunkText(), 200));
+                citation.setQuote(""); // 不显示文章内容，只显示标题
                 citation.setChunkId(result.getChunkId());
-                citation.setScore(result.getFinalScore());
+                citation.setScore(result.getFinalScore()); // 已归一化到 0.0 ~ 1.0
                 return citation;
             })
             .collect(Collectors.toList());
