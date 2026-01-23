@@ -83,6 +83,31 @@ function App() {
         <div className="container">
           {!selectedPost ? (
             <>
+              {/* 静态介绍区域 - SEO友好 */}
+              <section className="intro-section">
+                <h2>关于铃铛师兄大模型</h2>
+                <div className="intro-content">
+                  <p>
+                    <strong>铃铛师兄大模型</strong>是一个专注于人工智能和大模型技术的专业博客平台。
+                    我们致力于分享最新的AI技术动态、大模型应用实践、机器学习算法解析以及行业前沿见解。
+                  </p>
+                  <p>
+                    在这里，您可以找到关于大语言模型（LLM）、生成式AI、自然语言处理（NLP）、
+                    计算机视觉、深度学习等领域的深度文章和技术教程。我们不仅关注理论研究，
+                    更注重实际应用和工程实践，帮助开发者更好地理解和应用AI技术。
+                  </p>
+                  <p>
+                    铃铛师兄大模型博客致力于成为AI技术爱好者和从业者的知识分享平台，
+                    通过高质量的技术内容，推动AI技术在中国的发展和应用。
+                    无论您是AI初学者还是资深工程师，都能在这里找到有价值的内容。
+                  </p>
+                  <div className="intro-keywords">
+                    <strong>核心关键词：</strong>
+                    <span>大模型、AI技术、人工智能、机器学习、深度学习、自然语言处理、生成式AI、技术博客</span>
+                  </div>
+                </div>
+              </section>
+
               {/* 搜索栏 */}
               <div className="search-bar">
                 <input
@@ -90,7 +115,7 @@ function App() {
                   placeholder="搜索文章..."
                   value={searchKeyword}
                   onChange={(e) => setSearchKeyword(e.target.value)}
-                  onKeyPress={(e) => e.key === 'Enter' && handleSearch()}
+                  onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
                 />
                 <button onClick={handleSearch}>搜索</button>
               </div>

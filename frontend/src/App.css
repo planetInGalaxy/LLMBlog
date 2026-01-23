@@ -79,6 +79,57 @@ body {
   padding: 3rem 0;
 }
 
+/* 介绍区域 - SEO友好 */
+.intro-section {
+  background: var(--card-bg);
+  border-radius: 12px;
+  padding: 2.5rem;
+  margin-bottom: 3rem;
+  box-shadow: var(--shadow);
+}
+
+.intro-section h2 {
+  font-size: 2rem;
+  margin-bottom: 1.5rem;
+  color: var(--text-color);
+  border-bottom: 3px solid var(--primary-color);
+  padding-bottom: 0.5rem;
+}
+
+.intro-content {
+  line-height: 1.8;
+  color: var(--text-color);
+}
+
+.intro-content p {
+  margin-bottom: 1.2rem;
+  font-size: 1.05rem;
+}
+
+.intro-content strong {
+  color: var(--primary-color);
+  font-weight: 600;
+}
+
+.intro-keywords {
+  margin-top: 1.5rem;
+  padding: 1rem;
+  background: var(--bg-color);
+  border-radius: 8px;
+  border-left: 4px solid var(--primary-color);
+}
+
+.intro-keywords strong {
+  display: block;
+  margin-bottom: 0.5rem;
+  color: var(--text-color);
+}
+
+.intro-keywords span {
+  color: var(--text-light);
+  font-size: 0.95rem;
+}
+
 /* 搜索栏 */
 .search-bar {
   display: flex;
@@ -268,5 +319,18 @@ body {
 
   .post-detail h1 {
     font-size: 2rem;
+  }
+
+  .intro-section {
+    padding: 1.5rem;
+    margin-bottom: 2rem;
+  }
+
+  .intro-section h2 {
+    font-size: 1.5rem;
+  }
+
+  .intro-content p {
+    font-size: 1rem;
   }
 }
