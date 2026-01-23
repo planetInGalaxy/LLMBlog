@@ -55,10 +55,50 @@ public class ElasticsearchInitializer {
             if (exists) {
                 log.info("✅ 索引已存在: {}", INDEX_NAME);
                 
-                // 获取索引文档数量
-                long count = esClient.count(c -> c.index(INDEX_NAME)).count();
-                log.info("📊 索引文档数量: {}", count);
-                return;
+                // 检查 embedding 维度是否匹配（自动修复维度不匹配问题）
+                try {
+                    var mappingResponse = esClient.indices().getMapping(m -> m.index(INDEX_NAME));
+                    var mapping = mappingResponse.get(INDEX_NAME);
+                    if (mapping != null && mapping.mappings() != null && mapping.mappings().properties() != null) {
+                        var embeddingProp = mapping.mappings().properties().get("embedding");
+                        if (embeddingProp != null && embeddingProp._kind() != null) {
+                            // 获取当前索引中 embedding 的维度
+                            var denseVector = embeddingProp.denseVector();
+                            if (denseVector != null) {
+                                Integer dimsValue = denseVector.dims();
+                                if (dimsValue != null) {
+                                    int currentDims = dimsValue;
+                                    int expectedDims = 768; // 与 ChunkDocument 中定义的维度一致
+                                    
+                                    if (currentDims != expectedDims) {
+                                        log.warn("⚠️  检测到 embedding 维度不匹配！");
+                                        log.warn("    当前索引维度: {}", currentDims);
+                                        log.warn("    期望的维度: {}", expectedDims);
+                                        log.warn("    自动删除旧索引并重建...");
+                                        
+                                        // 删除旧索引
+                                        esClient.indices().delete(d -> d.index(INDEX_NAME));
+                                        log.info("✅ 已删除旧索引");
+                                        
+                                        // 跳转到创建索引逻辑
+                                        exists = false;
+                                    } else {
+                                        log.info("✅ Embedding 维度匹配: {} 维", currentDims);
+                                    }
+                                }
+                            }
+                        }
+                    }
+                } catch (Exception e) {
+                    log.warn("检查 embedding 维度失败（将继续使用现有索引）: {}", e.getMessage());
+                }
+                
+                if (exists) {
+                    // 获取索引文档数量
+                    long count = esClient.count(c -> c.index(INDEX_NAME)).count();
+                    log.info("📊 索引文档数量: {}", count);
+                    return;
+                }
             }
             
             log.info("索引不存在，开始创建: {}", INDEX_NAME);
