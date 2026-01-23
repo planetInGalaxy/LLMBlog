@@ -184,6 +184,9 @@ public class RagService {
                 return results;
             }
             
+            log.info("开始向量检索: index=lingdang_chunks_v1, topK={}, embedding_dim={}, doc_count={}", 
+                topK, embedding.length, count);
+            
             SearchResponse<ChunkDocument> response = esClient.search(s -> s
                 .index("lingdang_chunks_v1")
                 .knn(k -> k
@@ -195,6 +198,8 @@ public class RagService {
                 .size(topK),
                 ChunkDocument.class
             );
+            
+            log.info("向量检索成功: total_hits={}", response.hits().total().value());
             
             for (Hit<ChunkDocument> hit : response.hits().hits()) {
                 ChunkDocument doc = hit.source();
@@ -210,8 +215,16 @@ public class RagService {
                     results.add(result);
                 }
             }
+            
+            log.info("向量检索结果处理完成: result_count={}", results.size());
+            
         } catch (Exception e) {
-            log.warn("向量检索失败，将返回空结果: {}", e.getMessage());
+            log.error("❌ 向量检索失败，将返回空结果", e);
+            log.error("❌ 异常类型: {}", e.getClass().getName());
+            log.error("❌ 异常信息: {}", e.getMessage());
+            if (e.getCause() != null) {
+                log.error("❌ 根本原因: {}", e.getCause().getMessage());
+            }
         }
         
         return results;
@@ -239,6 +252,9 @@ public class RagService {
                 return results;
             }
             
+            log.info("开始 BM25 检索: index=lingdang_chunks_v1, query='{}', topK={}, doc_count={}", 
+                query, topK, count);
+            
             SearchResponse<ChunkDocument> response = esClient.search(s -> s
                 .index("lingdang_chunks_v1")
                 .query(q -> q
@@ -250,6 +266,8 @@ public class RagService {
                 .size(topK),
                 ChunkDocument.class
             );
+            
+            log.info("BM25 检索成功: total_hits={}", response.hits().total().value());
             
             for (Hit<ChunkDocument> hit : response.hits().hits()) {
                 ChunkDocument doc = hit.source();
@@ -265,8 +283,16 @@ public class RagService {
                     results.add(result);
                 }
             }
+            
+            log.info("BM25 检索结果处理完成: result_count={}", results.size());
+            
         } catch (Exception e) {
-            log.warn("BM25 检索失败，将返回空结果: {}", e.getMessage());
+            log.error("❌ BM25 检索失败，将返回空结果", e);
+            log.error("❌ 异常类型: {}", e.getClass().getName());
+            log.error("❌ 异常信息: {}", e.getMessage());
+            if (e.getCause() != null) {
+                log.error("❌ 根本原因: {}", e.getCause().getMessage());
+            }
         }
         
         return results;
