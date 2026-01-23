@@ -1,17 +1,15 @@
 {
-  "settings": {
-    "number_of_shards": 1,
-    "number_of_replicas": 0,
-    "max_result_window": 10000,
-    "refresh_interval": "1s",
-    "analysis": {
-      "analyzer": {
-        "ik_max_word": {
-          "type": "standard"
-        },
-        "ik_smart": {
-          "type": "standard"
-        }
+  "number_of_shards": 1,
+  "number_of_replicas": 0,
+  "max_result_window": 10000,
+  "refresh_interval": "1s",
+  "analysis": {
+    "analyzer": {
+      "ik_max_word": {
+        "type": "standard"
+      },
+      "ik_smart": {
+        "type": "standard"
       }
     }
   }
