@@ -102,7 +102,7 @@ public class RagService {
                     new ChatCompletionRequest.ChatMessage("user", userPrompt)
                 );
                 
-                llmResponse = llmService.chatCompletionWithUsage(messages, 1000);
+                llmResponse = llmService.chatCompletionWithUsage(messages, 2048);
                 answer = llmResponse.getChoices().get(0).getMessage().getContent();
                 citations = extractCitations(results);
                 
@@ -113,7 +113,7 @@ public class RagService {
                     new ChatCompletionRequest.ChatMessage("user", request.getQuestion())
                 );
                 
-                llmResponse = llmService.chatCompletionWithUsage(messages, 1000);
+                llmResponse = llmService.chatCompletionWithUsage(messages, 2048);
                 answer = llmResponse.getChoices().get(0).getMessage().getContent();
                 citations = new ArrayList<>();
                 

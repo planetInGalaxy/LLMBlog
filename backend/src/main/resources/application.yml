@@ -57,7 +57,7 @@ admin:
 # 限流配置
 rate-limit:
   assistant:
-    permits-per-hour: 30
+    permits-per-hour: 360  # 6次/分钟
   
 # 日志配置
 logging:

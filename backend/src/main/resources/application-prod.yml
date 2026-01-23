@@ -45,7 +45,7 @@ admin:
 # 限流配置
 rate-limit:
   assistant:
-    permits-per-hour: ${RATE_LIMIT_ASSISTANT:30}
+    permits-per-hour: ${RATE_LIMIT_ASSISTANT:360}
 
 logging:
   level:

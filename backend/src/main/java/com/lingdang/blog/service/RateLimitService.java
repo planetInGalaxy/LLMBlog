@@ -38,8 +38,9 @@ public class RateLimitService {
             .build(new CacheLoader<String, RateLimiter>() {
                 @Override
                 public RateLimiter load(String key) {
-                    // 默认每小时30次
-                    double permitsPerSecond = 30.0 / 3600.0;
+                    // 从配置读取，默认每小时360次（6次/分钟）
+                    int permitsPerHour = rateLimitConfig.getAssistant().getPermitsPerHour();
+                    double permitsPerSecond = (double) permitsPerHour / 3600.0;
                     return RateLimiter.create(permitsPerSecond);
                 }
             });

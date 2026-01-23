@@ -20,8 +20,8 @@ public class RateLimitConfig {
     @Data
     public static class AssistantRateLimit {
         /**
-         * 每小时允许的请求数
+         * 每小时允许的请求数（默认 360 = 6次/分钟）
          */
-        private int permitsPerHour = 30;
+        private int permitsPerHour = 360;
     }
 }
