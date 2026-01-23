@@ -1,5 +1,5 @@
 import { Routes, Route, Link, useNavigate, useParams } from 'react-router-dom';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
@@ -202,73 +202,182 @@ function BlogDetailPage() {
 
 // ==================== Assistant 页面 ====================
 function AssistantPage() {
-  const [question, setQuestion] = useState('');
-  const [response, setResponse] = useState(null);
+  const [messages, setMessages] = useState([]);
+  const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
+  const messagesEndRef = useRef(null);
+
+  const scrollToBottom = () => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  };
+
+  useEffect(() => {
+    scrollToBottom();
+  }, [messages]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!question.trim()) return;
+    if (!input.trim() || loading) return;
 
+    const userMessage = input.trim();
+    setInput('');
+    
+    // 添加用户消息
+    const newMessages = [...messages, { role: 'user', content: userMessage }];
+    setMessages(newMessages);
+    
+    // 添加助手占位消息
+    setMessages([...newMessages, { role: 'assistant', content: '', citations: [], streaming: true }]);
     setLoading(true);
+
     try {
-      const res = await fetch(`${API_URL}/assistant/query`, {
+      const response = await fetch(`${API_URL}/assistant/query`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ question, mode: 'ARTICLE_ONLY' })
+        body: JSON.stringify({ 
+          question: userMessage,
+          mode: 'FLEXIBLE'
+        })
       });
-      const result = await res.json();
+
+      const result = await response.json();
+      
       if (result.success) {
-        setResponse(result.data);
+        const { answer, citations } = result.data;
+        setMessages(prev => {
+          const updated = [...prev];
+          updated[updated.length - 1] = {
+            role: 'assistant',
+            content: answer,
+            citations: citations || [],
+            streaming: false
+          };
+          return updated;
+        });
       } else {
-        alert(result.message);
+        throw new Error(result.message);
       }
     } catch (error) {
       console.error('查询失败:', error);
-      alert('查询失败，请稍后重试');
+      setMessages(prev => {
+        const updated = [...prev];
+        updated[updated.length - 1] = {
+          role: 'assistant',
+          content: '抱歉，查询失败了，请稍后重试。',
+          error: true,
+          streaming: false
+        };
+        return updated;
+      });
     } finally {
       setLoading(false);
     }
   };
 
+  const handleKeyPress = (e) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      handleSubmit(e);
+    }
+  };
+
   return (
     <div className="assistant-page">
-      <h1>🤖 AI 学习助手</h1>
-      <p>基于已发布文章库回答你的问题</p>
-      
-      <form onSubmit={handleSubmit} className="query-form">
+      <div className="chat-header">
+        <h1>🤖 AI 学习助手</h1>
+        <p>基于您的文章知识库，智能回答问题</p>
+      </div>
+
+      <div className="chat-messages">
+        {messages.length === 0 && (
+          <div className="welcome-message">
+            <h2>👋 欢迎使用 AI 学习助手</h2>
+            <p>您可以问我任何关于文章内容的问题，我会基于知识库为您解答。</p>
+            <div className="example-questions">
+              <p><strong>示例问题：</strong></p>
+              <button onClick={() => setInput('文章主要讲了什么内容？')}>文章主要讲了什么内容？</button>
+              <button onClick={() => setInput('有哪些关键技术点？')}>有哪些关键技术点？</button>
+            </div>
+          </div>
+        )}
+
+        {messages.map((msg, idx) => (
+          <div key={idx} className={`message message-${msg.role}`}>
+            {msg.role === 'user' ? (
+              <div className="message-content">
+                <div className="message-avatar">👤</div>
+                <div className="message-text">{msg.content}</div>
+              </div>
+            ) : (
+              <div className="message-content">
+                <div className="message-avatar">🤖</div>
+                <div className="message-text">
+                  {msg.error ? (
+                    <p className="error-text">{msg.content}</p>
+                  ) : (
+                    <>
+                      <ReactMarkdown
+                        remarkPlugins={[remarkGfm]}
+                        components={{
+                          code({ node, inline, className, children, ...props }) {
+                            const match = /language-(\w+)/.exec(className || '');
+                            return !inline && match ? (
+                              <SyntaxHighlighter
+                                style={vscDarkPlus}
+                                language={match[1]}
+                                PreTag="div"
+                                {...props}
+                              >
+                                {String(children).replace(/\n$/, '')}
+                              </SyntaxHighlighter>
+                            ) : (
+                              <code className={className} {...props}>
+                                {children}
+                              </code>
+                            );
+                          }
+                        }}
+                      >
+                        {msg.content || '思考中...'}
+                      </ReactMarkdown>
+                      
+                      {msg.citations && msg.citations.length > 0 && (
+                        <div className="citations">
+                          <h4>📚 参考文章：</h4>
+                          {msg.citations.map((cite, i) => (
+                            <div key={i} className="citation-card">
+                              <a href={cite.url} target="_blank" rel="noopener noreferrer">
+                                <strong>{cite.title}</strong>
+                              </a>
+                              <p className="citation-quote">"{cite.quote}"</p>
+                              <span className="citation-score">相关度: {(cite.score * 100).toFixed(0)}%</span>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+        ))}
+        <div ref={messagesEndRef} />
+      </div>
+
+      <form onSubmit={handleSubmit} className="chat-input-form">
         <textarea
-          value={question}
-          onChange={(e) => setQuestion(e.target.value)}
-          placeholder="请输入你的问题..."
-          rows="4"
+          value={input}
+          onChange={(e) => setInput(e.target.value)}
+          onKeyPress={handleKeyPress}
+          placeholder="输入问题... (Enter 发送，Shift+Enter 换行)"
+          rows={3}
           disabled={loading}
         />
-        <button type="submit" disabled={loading || !question.trim()}>
-          {loading ? '查询中...' : '提问'}
+        <button type="submit" disabled={loading || !input.trim()}>
+          {loading ? '思考中...' : '发送'}
         </button>
       </form>
-
-      {response && (
-        <div className="response-section">
-          <h2>回答</h2>
-          <div className="answer">{response.answer}</div>
-          
-          {response.citations && response.citations.length > 0 && (
-            <div className="citations">
-              <h3>参考文章</h3>
-              {response.citations.map((citation, idx) => (
-                <div key={idx} className="citation-item">
-                  <a href={citation.url} target="_blank" rel="noopener noreferrer">
-                    [{idx + 1}] {citation.title}
-                  </a>
-                  <p className="quote">{citation.quote}</p>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-      )}
     </div>
   );
 }
@@ -418,6 +527,7 @@ function StudioArticleList() {
 
 // ==================== Studio 文章编辑 ====================
 function StudioArticleEdit() {
+  const { id } = useParams();
   const [article, setArticle] = useState({
     title: '',
     slug: '',
@@ -426,13 +536,52 @@ function StudioArticleEdit() {
     tags: '',
     author: '铃铛师兄'
   });
+  const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
+
+  // 如果是编辑模式，加载文章数据
+  useEffect(() => {
+    if (id) {
+      fetchArticle();
+    }
+  }, [id]);
+
+  const fetchArticle = async () => {
+    setLoading(true);
+    const token = localStorage.getItem('token');
+    try {
+      const response = await fetch(`${API_URL}/studio/articles/${id}`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      const result = await response.json();
+      if (result.success) {
+        const data = result.data;
+        setArticle({
+          title: data.title || '',
+          slug: data.slug || '',
+          summary: data.summary || '',
+          contentMarkdown: data.contentMarkdown || '',
+          tags: data.tags || '',
+          author: data.author || '铃铛师兄'
+        });
+      }
+    } catch (error) {
+      console.error('获取文章失败:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleSave = async () => {
     const token = localStorage.getItem('token');
     try {
-      const response = await fetch(`${API_URL}/studio/articles`, {
-        method: 'POST',
+      const url = id ? `${API_URL}/studio/articles/${id}` : `${API_URL}/studio/articles`;
+      const method = id ? 'PUT' : 'POST';
+      
+      const response = await fetch(url, {
+        method,
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
@@ -450,6 +599,8 @@ function StudioArticleEdit() {
       console.error('保存失败:', error);
     }
   };
+
+  if (loading) return <div className="loading">加载中</div>;
 
   return (
     <div className="studio-article-edit">

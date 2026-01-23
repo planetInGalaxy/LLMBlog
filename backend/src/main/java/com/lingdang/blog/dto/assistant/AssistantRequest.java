@@ -12,5 +12,7 @@ public class AssistantRequest {
     @NotBlank(message = "问题不能为空")
     private String question;
     
-    private String mode = "ARTICLE_ONLY";
+    // ARTICLE_ONLY: 只基于文章回答
+    // FLEXIBLE: 灵活模式，有文章就引用，没有就直接回答
+    private String mode = "FLEXIBLE";
 }

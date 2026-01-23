@@ -41,7 +41,7 @@ public class RagService {
     private final ObjectMapper objectMapper = new ObjectMapper();
     
     // System Prompt
-    private static final String SYSTEM_PROMPT = """
+    private static final String SYSTEM_PROMPT_WITH_ARTICLES = """
         你是铃铛师兄大模型博客的智能助手。你的任务是基于提供的文章片段回答用户的问题。
         
         **重要规则**：
@@ -50,6 +50,24 @@ public class RagService {
         3. 回答要准确、简洁、专业
         4. 在回答中标注引用来源（使用 [1]、[2] 等标记）
         5. 保持中文回答
+        """;
+    
+    private static final String SYSTEM_PROMPT_FLEXIBLE = """
+        你是铃铛师兄大模型博客的智能助手，也是大模型和AI领域的专家。
+        
+        **你的职责**：
+        1. 如果提供了相关文章片段，优先基于文章内容回答，并标注引用来源
+        2. 如果没有相关文章或文章信息不足，可以基于你的专业知识回答
+        3. 回答要准确、专业、有深度，特别在大模型、AI技术、机器学习等领域
+        4. 保持中文回答，语言友好易懂
+        5. 如果不确定答案，诚实告知用户
+        
+        **你的专长领域**：
+        - 大语言模型（LLM）架构、训练、推理
+        - AI 技术应用（RAG、Agent、Fine-tuning 等）
+        - 机器学习算法和深度学习
+        - 自然语言处理（NLP）
+        - 技术博客写作和知识分享
         """;
     
     /**
@@ -66,20 +84,45 @@ public class RagService {
             // 2. 混合检索（向量 + BM25）
             List<RetrievalResult> results = hybridSearch(request.getQuestion(), queryEmbedding);
             
-            // 3. 构建 Prompt
-            String userPrompt = buildPrompt(request.getQuestion(), results);
+            // 3. 判断模式和是否有检索结果
+            boolean hasArticles = results != null && !results.isEmpty();
+            boolean isFlexibleMode = "FLEXIBLE".equalsIgnoreCase(request.getMode());
             
-            // 4. 调用 LLM
-            List<ChatCompletionRequest.ChatMessage> messages = Arrays.asList(
-                new ChatCompletionRequest.ChatMessage("system", SYSTEM_PROMPT),
-                new ChatCompletionRequest.ChatMessage("user", userPrompt)
-            );
+            String answer;
+            List<AssistantResponse.Citation> citations;
+            ChatCompletionResponse llmResponse;
             
-            ChatCompletionResponse llmResponse = llmService.chatCompletionWithUsage(messages, 1000);
-            String answer = llmResponse.getChoices().get(0).getMessage().getContent();
-            
-            // 5. 提取引用
-            List<AssistantResponse.Citation> citations = extractCitations(results);
+            if (hasArticles) {
+                // 有文章：基于文章回答
+                String userPrompt = buildPrompt(request.getQuestion(), results);
+                String systemPrompt = isFlexibleMode ? SYSTEM_PROMPT_FLEXIBLE : SYSTEM_PROMPT_WITH_ARTICLES;
+                
+                List<ChatCompletionRequest.ChatMessage> messages = Arrays.asList(
+                    new ChatCompletionRequest.ChatMessage("system", systemPrompt),
+                    new ChatCompletionRequest.ChatMessage("user", userPrompt)
+                );
+                
+                llmResponse = llmService.chatCompletionWithUsage(messages, 1000);
+                answer = llmResponse.getChoices().get(0).getMessage().getContent();
+                citations = extractCitations(results);
+                
+            } else if (isFlexibleMode) {
+                // FLEXIBLE 模式且无文章：直接回答
+                List<ChatCompletionRequest.ChatMessage> messages = Arrays.asList(
+                    new ChatCompletionRequest.ChatMessage("system", SYSTEM_PROMPT_FLEXIBLE),
+                    new ChatCompletionRequest.ChatMessage("user", request.getQuestion())
+                );
+                
+                llmResponse = llmService.chatCompletionWithUsage(messages, 1000);
+                answer = llmResponse.getChoices().get(0).getMessage().getContent();
+                citations = new ArrayList<>();
+                
+            } else {
+                // ARTICLE_ONLY 模式且无文章：返回未找到
+                answer = "抱歉，文章库中未找到与您问题相关的内容。您可以尝试换个问法，或者查看文章列表选择感兴趣的文章阅读。";
+                citations = new ArrayList<>();
+                llmResponse = null;
+            }
             
             // 6. 构建响应
             AssistantResponse response = new AssistantResponse();
