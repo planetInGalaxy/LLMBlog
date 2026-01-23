@@ -215,4 +215,68 @@ public class LlmService {
             return objectMapper.readValue(responseBody, ChatCompletionResponse.class);
         }
     }
+    
+    /**
+     * Chat Completion 流式输出
+     */
+    public void chatCompletionStream(List<ChatCompletionRequest.ChatMessage> messages, Integer maxTokens, StreamCallback callback) throws IOException {
+        ChatCompletionRequest request = new ChatCompletionRequest(
+            llmConfig.getChatModel(),
+            messages,
+            0.7,
+            maxTokens
+        );
+        
+        // 添加 stream 参数
+        String requestBody = objectMapper.writeValueAsString(request).replace("}", ",\"stream\":true}");
+        
+        Request httpRequest = new Request.Builder()
+            .url(llmConfig.getBaseUrl() + "/chat/completions")
+            .header("Authorization", "Bearer " + llmConfig.getApiKey())
+            .header("Content-Type", "application/json")
+            .post(RequestBody.create(requestBody, JSON))
+            .build();
+        
+        try (Response response = getHttpClient().newCall(httpRequest).execute()) {
+            if (!response.isSuccessful()) {
+                throw new IOException("LLM 流式请求失败: " + response.code());
+            }
+            
+            // 逐行读取流式响应
+            java.io.BufferedReader reader = new java.io.BufferedReader(
+                new java.io.InputStreamReader(response.body().byteStream())
+            );
+            
+            String line;
+            while ((line = reader.readLine()) != null) {
+                if (line.startsWith("data: ")) {
+                    String data = line.substring(6).trim();
+                    if ("[DONE]".equals(data)) {
+                        break;
+                    }
+                    try {
+                        var chunk = objectMapper.readTree(data);
+                        var choices = chunk.get("choices");
+                        if (choices != null && choices.size() > 0) {
+                            var delta = choices.get(0).get("delta");
+                            if (delta != null && delta.has("content")) {
+                                String content = delta.get("content").asText();
+                                callback.onChunk(content);
+                            }
+                        }
+                    } catch (Exception e) {
+                        log.warn("解析流式响应失败: {}", data, e);
+                    }
+                }
+            }
+        }
+    }
+    
+    /**
+     * 流式回调接口
+     */
+    @FunctionalInterface
+    public interface StreamCallback {
+        void onChunk(String chunk);
+    }
 }

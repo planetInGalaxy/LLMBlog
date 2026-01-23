@@ -9,8 +9,10 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
 /**
  * Assistant API Controller
@@ -28,7 +30,51 @@ public class AssistantController {
     private RateLimitService rateLimitService;
     
     /**
-     * 查询
+     * 流式查询（SSE）
+     */
+    @PostMapping(value = "/query/stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
+    public SseEmitter queryStream(
+            @Valid @RequestBody AssistantRequest request,
+            HttpServletRequest httpRequest) {
+        
+        SseEmitter emitter = new SseEmitter(120000L); // 2分钟超时
+        String clientIp = getClientIp(httpRequest);
+        
+        // 限流检查
+        if (!rateLimitService.allowRequest(clientIp)) {
+            try {
+                emitter.send(SseEmitter.event()
+                    .name("error")
+                    .data("{\"message\":\"请求过于频繁，请稍后再试\"}"));
+                emitter.complete();
+            } catch (Exception e) {
+                log.error("发送限流错误失败", e);
+            }
+            return emitter;
+        }
+        
+        // 异步执行查询
+        new Thread(() -> {
+            try {
+                ragService.queryStream(request, clientIp, emitter);
+            } catch (Exception e) {
+                log.error("流式查询异常", e);
+                try {
+                    emitter.send(SseEmitter.event()
+                        .name("error")
+                        .data("{\"message\":\"" + e.getMessage() + "\"}"));
+                    emitter.complete();
+                } catch (Exception ex) {
+                    log.error("发送错误失败", ex);
+                }
+            }
+        }).start();
+        
+        return emitter;
+    }
+    
+    /**
+     * 非流式查询（兼容旧版本）
      */
     @PostMapping("/query")
     public ResponseEntity<ApiResponse<AssistantResponse>> query(

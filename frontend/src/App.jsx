@@ -231,40 +231,78 @@ function AssistantPage() {
     setLoading(true);
 
     try {
-      // 构建历史对话（只发送用户和助手的对话内容，不包括系统消息和引用）
+      // 构建历史对话（只发送用户和助手的对话内容）
       const history = messages.map(msg => ({
         role: msg.role,
         content: msg.content
       }));
 
-      // 调用 API（非流式，但支持多轮对话）
-      const response = await fetch(`${API_URL}/assistant/query`, {
+      // 使用 fetch 流式接收响应
+      const response = await fetch(`${API_URL}/assistant/query/stream`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           question: userMessage,
           mode: 'FLEXIBLE',
-          history: history  // 发送历史对话
+          history: history
         })
       });
 
-      const result = await response.json();
-      
-      if (result.success) {
-        const { answer, citations } = result.data;
-        setMessages(prev => {
-          const updated = [...prev];
-          updated[updated.length - 1] = {
-            role: 'assistant',
-            content: answer,
-            citations: citations || [],
-            streaming: false
-          };
-          return updated;
-        });
-      } else {
-        throw new Error(result.message);
+      if (!response.ok) {
+        throw new Error('网络请求失败');
       }
+
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = '';
+      let fullAnswer = '';
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split('\n');
+        buffer = lines.pop(); // 保留未完成的行
+
+        for (const line of lines) {
+          if (line.startsWith('data: ')) {
+            const data = line.slice(6).trim();
+            if (data === '[DONE]') continue;
+            
+            try {
+              // 简单文本直接追加
+              fullAnswer += data;
+              setMessages(prev => {
+                const updated = [...prev];
+                updated[updated.length - 1].content = fullAnswer;
+                return updated;
+              });
+            } catch (e) {
+              // 忽略解析错误
+            }
+          } else if (line.includes('event: citations')) {
+            // 下一行可能是引用数据
+          } else if (line.includes('event: done')) {
+            setMessages(prev => {
+              const updated = [...prev];
+              updated[updated.length - 1].streaming = false;
+              return updated;
+            });
+            setLoading(false);
+          } else if (line.includes('event: error')) {
+            throw new Error('服务器错误');
+          }
+        }
+      }
+
+      setMessages(prev => {
+        const updated = [...prev];
+        updated[updated.length - 1].streaming = false;
+        return updated;
+      });
+      setLoading(false);
+
     } catch (error) {
       console.error('查询失败:', error);
       setMessages(prev => {

@@ -16,6 +16,7 @@ import lombok.Data;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
 import java.io.IOException;
 import java.time.LocalDateTime;
@@ -371,6 +372,88 @@ public class RagService {
             list.add(f);
         }
         return list;
+    }
+    
+    /**
+     * 流式查询（SSE）
+     */
+    public void queryStream(AssistantRequest request, String clientIp, SseEmitter emitter) {
+        String requestId = UUID.randomUUID().toString();
+        long startTime = System.currentTimeMillis();
+        
+        try {
+            // 1. 生成 embedding
+            float[] queryEmbedding = llmService.generateEmbedding(request.getQuestion());
+            
+            // 2. 混合检索
+            List<RetrievalResult> results = hybridSearch(request.getQuestion(), queryEmbedding);
+            
+            // 3. 判断模式
+            boolean hasArticles = results != null && !results.isEmpty();
+            boolean isFlexibleMode = "FLEXIBLE".equalsIgnoreCase(request.getMode());
+            
+            // 4. 构建消息列表（包含历史对话）
+            List<ChatCompletionRequest.ChatMessage> messages = new ArrayList<>();
+            
+            String systemPrompt = (hasArticles || !isFlexibleMode) ? 
+                SYSTEM_PROMPT_WITH_ARTICLES : SYSTEM_PROMPT_FLEXIBLE;
+            messages.add(new ChatCompletionRequest.ChatMessage("system", systemPrompt));
+            
+            if (request.getHistory() != null && !request.getHistory().isEmpty()) {
+                for (AssistantRequest.ChatMessage historyMsg : request.getHistory()) {
+                    messages.add(new ChatCompletionRequest.ChatMessage(
+                        historyMsg.getRole(), 
+                        historyMsg.getContent()
+                    ));
+                }
+            }
+            
+            String userPrompt = hasArticles ? 
+                buildPrompt(request.getQuestion(), results) : request.getQuestion();
+            messages.add(new ChatCompletionRequest.ChatMessage("user", userPrompt));
+            
+            // 5. 流式调用 LLM
+            if (hasArticles || isFlexibleMode) {
+                llmService.chatCompletionStream(messages, 2048, (chunk) -> {
+                    try {
+                        emitter.send(SseEmitter.event()
+                            .name("message")
+                            .data(chunk));
+                    } catch (IOException e) {
+                        log.error("发送 SSE 失败", e);
+                    }
+                });
+            } else {
+                emitter.send(SseEmitter.event()
+                    .name("message")
+                    .data("抱歉，文章库中未找到与您问题相关的内容。"));
+            }
+            
+            // 6. 发送引用
+            if (hasArticles) {
+                List<AssistantResponse.Citation> citations = extractCitations(results);
+                emitter.send(SseEmitter.event()
+                    .name("citations")
+                    .data(new ObjectMapper().writeValueAsString(citations)));
+            }
+            
+            // 7. 完成
+            emitter.send(SseEmitter.event()
+                .name("done")
+                .data("{\"latencyMs\":" + (System.currentTimeMillis() - startTime) + "}"));
+            emitter.complete();
+            
+        } catch (Exception e) {
+            log.error("RAG 流式查询失败: request_id={}", requestId, e);
+            try {
+                emitter.send(SseEmitter.event()
+                    .name("error")
+                    .data("{\"message\":\"" + e.getMessage() + "\"}"));
+                emitter.complete();
+            } catch (IOException ex) {
+                log.error("发送错误失败", ex);
+            }
+        }
     }
     
     /**
