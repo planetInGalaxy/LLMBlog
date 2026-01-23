@@ -1,7 +1,6 @@
 package com.lingdang.blog.service;
 
 import co.elastic.clients.elasticsearch.ElasticsearchClient;
-import co.elastic.clients.elasticsearch._types.query_dsl.Query;
 import co.elastic.clients.elasticsearch.core.SearchResponse;
 import co.elastic.clients.elasticsearch.core.search.Hit;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -19,7 +18,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
 import java.io.IOException;
-import java.time.LocalDateTime;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -171,6 +169,21 @@ public class RagService {
         List<RetrievalResult> results = new ArrayList<>();
         
         try {
+            // 先检查索引是否存在
+            boolean indexExists = esClient.indices().exists(e -> e.index("lingdang_chunks_v1")).value();
+            
+            if (!indexExists) {
+                log.warn("索引 lingdang_chunks_v1 不存在，跳过向量检索");
+                return results;
+            }
+            
+            // 检查索引是否有数据
+            long count = esClient.count(c -> c.index("lingdang_chunks_v1")).count();
+            if (count == 0) {
+                log.warn("索引 lingdang_chunks_v1 为空，跳过向量检索");
+                return results;
+            }
+            
             SearchResponse<ChunkDocument> response = esClient.search(s -> s
                 .index("lingdang_chunks_v1")
                 .knn(k -> k
@@ -193,12 +206,12 @@ public class RagService {
                     result.setTitle(doc.getTitle());
                     result.setAnchor(doc.getAnchor());
                     result.setChunkText(doc.getChunkText());
-                    result.setVectorScore(hit.score() != null ? hit.score() : 0.0);
+                    result.setVectorScore(hit.score() != null ? hit.score().doubleValue() : 0.0);
                     results.add(result);
                 }
             }
         } catch (Exception e) {
-            log.error("向量检索失败", e);
+            log.warn("向量检索失败，将返回空结果: {}", e.getMessage());
         }
         
         return results;
@@ -211,6 +224,21 @@ public class RagService {
         List<RetrievalResult> results = new ArrayList<>();
         
         try {
+            // 先检查索引是否存在
+            boolean indexExists = esClient.indices().exists(e -> e.index("lingdang_chunks_v1")).value();
+            
+            if (!indexExists) {
+                log.warn("索引 lingdang_chunks_v1 不存在，跳过 BM25 检索");
+                return results;
+            }
+            
+            // 检查索引是否有数据
+            long count = esClient.count(c -> c.index("lingdang_chunks_v1")).count();
+            if (count == 0) {
+                log.warn("索引 lingdang_chunks_v1 为空，跳过 BM25 检索");
+                return results;
+            }
+            
             SearchResponse<ChunkDocument> response = esClient.search(s -> s
                 .index("lingdang_chunks_v1")
                 .query(q -> q
@@ -233,12 +261,12 @@ public class RagService {
                     result.setTitle(doc.getTitle());
                     result.setAnchor(doc.getAnchor());
                     result.setChunkText(doc.getChunkText());
-                    result.setBm25Score(hit.score() != null ? hit.score() : 0.0);
+                    result.setBm25Score(hit.score() != null ? hit.score().doubleValue() : 0.0);
                     results.add(result);
                 }
             }
         } catch (Exception e) {
-            log.error("BM25 检索失败", e);
+            log.warn("BM25 检索失败，将返回空结果: {}", e.getMessage());
         }
         
         return results;

@@ -1226,3 +1226,141 @@ nav a:hover {
     padding: 0.5rem;
   }
 }
+
+/* ========== Studio 新增样式 ========== */
+
+/* Studio 头部操作按钮组 */
+.studio-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 2rem;
+}
+
+.studio-header h1 {
+  margin: 0;
+}
+
+.header-actions {
+  display: flex;
+  gap: 1rem;
+}
+
+/* 索引健康状态卡片 */
+.index-health-card {
+  background: var(--card-bg);
+  border-radius: var(--radius);
+  padding: 1.5rem;
+  margin-bottom: 2rem;
+  box-shadow: var(--shadow);
+  border-left: 4px solid var(--success-color);
+}
+
+.index-health-card.unhealthy {
+  border-left-color: var(--danger-color);
+}
+
+.index-health-card h3 {
+  margin-bottom: 1rem;
+  color: var(--text-color);
+}
+
+.health-info {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 1rem;
+}
+
+.health-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.5rem;
+  background: var(--bg-color);
+  border-radius: 4px;
+}
+
+.health-item span {
+  color: var(--text-light);
+}
+
+.health-item strong {
+  color: var(--text-color);
+}
+
+.text-success {
+  color: var(--success-color);
+}
+
+.text-error {
+  color: var(--danger-color);
+}
+
+/* 按钮样式变体 */
+button.btn-success {
+  background-color: var(--success-color);
+  color: white;
+}
+
+button.btn-success:hover:not(:disabled) {
+  background-color: #059669;
+}
+
+button.btn-warning {
+  background-color: var(--warning-color);
+  color: white;
+}
+
+button.btn-warning:hover:not(:disabled) {
+  background-color: #d97706;
+}
+
+button.btn-danger {
+  background-color: var(--danger-color);
+  color: white;
+}
+
+button.btn-danger:hover:not(:disabled) {
+  background-color: #dc2626;
+}
+
+button.btn-info {
+  background-color: #3b82f6;
+  color: white;
+}
+
+button.btn-info:hover:not(:disabled) {
+  background-color: #2563eb;
+}
+
+/* 表格操作按钮组 */
+.article-table td button {
+  margin-right: 0.5rem;
+  padding: 0.4rem 0.8rem;
+  font-size: 0.85rem;
+}
+
+.article-table td button:last-child {
+  margin-right: 0;
+}
+
+/* 响应式调整 */
+@media (max-width: 768px) {
+  .header-actions {
+    flex-direction: column;
+    width: 100%;
+  }
+
+  .header-actions button {
+    width: 100%;
+  }
+
+  .health-info {
+    grid-template-columns: 1fr;
+  }
+
+  .article-table td button {
+    font-size: 0.75rem;
+    padding: 0.3rem 0.6rem;
+  }
+}

@@ -32,14 +32,32 @@ public class ElasticsearchInitializer {
     @EventListener(ApplicationReadyEvent.class)
     public void initializeIndex() {
         try {
-            log.info("检查 Elasticsearch 索引: {}", INDEX_NAME);
+            log.info("=== Elasticsearch 索引初始化开始 ===");
+            log.info("目标索引: {}", INDEX_NAME);
+            
+            // 检查 ES 连接
+            try {
+                boolean pingResult = esClient.ping().value();
+                if (!pingResult) {
+                    log.error("❌ Elasticsearch 连接失败");
+                    return;
+                }
+                log.info("✅ Elasticsearch 连接正常");
+            } catch (Exception e) {
+                log.error("❌ Elasticsearch 连接异常: {}", e.getMessage());
+                return;
+            }
             
             // 检查索引是否存在
             ExistsRequest existsRequest = ExistsRequest.of(e -> e.index(INDEX_NAME));
             boolean exists = esClient.indices().exists(existsRequest).value();
             
             if (exists) {
-                log.info("索引已存在: {}", INDEX_NAME);
+                log.info("✅ 索引已存在: {}", INDEX_NAME);
+                
+                // 获取索引文档数量
+                long count = esClient.count(c -> c.index(INDEX_NAME)).count();
+                log.info("📊 索引文档数量: {}", count);
                 return;
             }
             
@@ -60,10 +78,86 @@ public class ElasticsearchInitializer {
             
             esClient.indices().create(request);
             log.info("✅ 索引创建成功: {}", INDEX_NAME);
+            log.info("=== Elasticsearch 索引初始化完成 ===");
             
         } catch (Exception e) {
             log.error("❌ 索引初始化失败: {}", e.getMessage(), e);
-            log.warn("索引初始化失败不影响应用启动，可在后续手动创建");
+            log.warn("⚠️  索引初始化失败不影响应用启动");
+            log.warn("⚠️  可通过 Studio 的「全量重建索引」功能手动修复");
         }
+    }
+    
+    /**
+     * 检查索引健康状态（提供给 Controller 调用）
+     */
+    public IndexHealth checkIndexHealth() {
+        IndexHealth health = new IndexHealth();
+        health.setIndexName(INDEX_NAME);
+        
+        try {
+            // 检查 ES 连接
+            boolean pingResult = esClient.ping().value();
+            health.setEsConnected(pingResult);
+            
+            if (!pingResult) {
+                health.setHealthy(false);
+                health.setMessage("Elasticsearch 连接失败");
+                return health;
+            }
+            
+            // 检查索引是否存在
+            boolean exists = esClient.indices().exists(e -> e.index(INDEX_NAME)).value();
+            health.setIndexExists(exists);
+            
+            if (!exists) {
+                health.setHealthy(false);
+                health.setMessage("索引不存在，请执行全量重建索引");
+                return health;
+            }
+            
+            // 获取文档数量
+            long count = esClient.count(c -> c.index(INDEX_NAME)).count();
+            health.setDocumentCount(count);
+            
+            health.setHealthy(true);
+            health.setMessage("索引健康");
+            
+        } catch (Exception e) {
+            health.setHealthy(false);
+            health.setMessage("检查失败: " + e.getMessage());
+        }
+        
+        return health;
+    }
+    
+    /**
+     * 索引健康状态
+     */
+    public static class IndexHealth {
+        private String indexName;
+        private boolean healthy;
+        private boolean esConnected;
+        private boolean indexExists;
+        private long documentCount;
+        private String message;
+        
+        // Getters and Setters
+        public String getIndexName() { return indexName; }
+        public void setIndexName(String indexName) { this.indexName = indexName; }
+        
+        public boolean isHealthy() { return healthy; }
+        public void setHealthy(boolean healthy) { this.healthy = healthy; }
+        
+        public boolean isEsConnected() { return esConnected; }
+        public void setEsConnected(boolean esConnected) { this.esConnected = esConnected; }
+        
+        public boolean isIndexExists() { return indexExists; }
+        public void setIndexExists(boolean indexExists) { this.indexExists = indexExists; }
+        
+        public long getDocumentCount() { return documentCount; }
+        public void setDocumentCount(long documentCount) { this.documentCount = documentCount; }
+        
+        public String getMessage() { return message; }
+        public void setMessage(String message) { this.message = message; }
     }
 }

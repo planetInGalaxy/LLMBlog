@@ -1,5 +1,6 @@
 package com.lingdang.blog.service;
 
+import co.elastic.clients.elasticsearch.ElasticsearchClient;
 import com.lingdang.blog.model.*;
 import com.lingdang.blog.repository.ArticleChunkRepository;
 import com.lingdang.blog.repository.ArticleRepository;
@@ -44,6 +45,11 @@ public class IndexPipelineService {
     @Autowired
     private LlmService llmService;
     
+    @Autowired
+    private ElasticsearchClient esClient;
+    
+    private static final String INDEX_NAME = "lingdang_chunks_v1";
+    
     /**
      * 触发索引（发布时调用）
      */
@@ -51,6 +57,17 @@ public class IndexPipelineService {
     public Long triggerIndex(Long articleId) {
         Article article = articleRepository.findById(articleId)
             .orElseThrow(() -> new RuntimeException("文章不存在: " + articleId));
+        
+        // 检查 ES 索引是否存在
+        try {
+            boolean indexExists = esClient.indices().exists(e -> e.index(INDEX_NAME)).value();
+            if (!indexExists) {
+                log.warn("ES 索引不存在，索引任务可能失败: {}", INDEX_NAME);
+                log.warn("请在 Studio 执行「全量重建索引」来创建索引");
+            }
+        } catch (Exception e) {
+            log.error("检查 ES 索引失败: {}", e.getMessage());
+        }
         
         // 计算 content_hash
         String contentHash = DigestUtils.sha256Hex(article.getContentMarkdown());
@@ -216,6 +233,26 @@ public class IndexPipelineService {
         articleRepository.save(article);
         
         return triggerIndex(articleId);
+    }
+    
+    /**
+     * 删除索引（下线或删除文章时调用）
+     */
+    @Transactional
+    public void deleteIndex(Long articleId) {
+        try {
+            // 1. 从 ES 删除
+            chunkDocumentRepository.deleteByArticleId(articleId);
+            log.info("从 ES 删除文章索引: article_id={}", articleId);
+            
+            // 2. 从 MySQL 删除 chunks
+            chunkService.deleteChunksByArticleId(articleId);
+            log.info("从 MySQL 删除文章 chunks: article_id={}", articleId);
+            
+        } catch (Exception e) {
+            log.error("删除索引失败: article_id={}", articleId, e);
+            // 不抛出异常，避免影响文章的下线/删除操作
+        }
     }
     
     /**

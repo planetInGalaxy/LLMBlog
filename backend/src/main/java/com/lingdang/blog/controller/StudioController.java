@@ -1,5 +1,6 @@
 package com.lingdang.blog.controller;
 
+import com.lingdang.blog.config.ElasticsearchInitializer;
 import com.lingdang.blog.dto.ApiResponse;
 import com.lingdang.blog.dto.article.ArticleDTO;
 import com.lingdang.blog.service.ArticleService;
@@ -24,6 +25,9 @@ public class StudioController {
     
     @Autowired
     private IndexPipelineService indexPipelineService;
+    
+    @Autowired
+    private ElasticsearchInitializer esInitializer;
     
     /**
      * 获取所有文章（含草稿）
@@ -66,6 +70,12 @@ public class StudioController {
             @Valid @RequestBody ArticleDTO dto) {
         try {
             ArticleDTO updated = articleService.updateArticle(id, dto);
+            
+            // 如果是已发布状态，自动触发重新索引
+            if ("PUBLISHED".equals(updated.getStatus())) {
+                indexPipelineService.triggerIndex(id);
+            }
+            
             return ResponseEntity.ok(ApiResponse.success("文章更新成功", updated));
         } catch (Exception e) {
             return ResponseEntity.ok(ApiResponse.error(e.getMessage()));
@@ -94,8 +104,9 @@ public class StudioController {
     public ResponseEntity<ApiResponse<ArticleDTO>> offlineArticle(@PathVariable Long id) {
         try {
             ArticleDTO offline = articleService.offlineArticle(id);
-            // TODO: 从 ES 删除
-            return ResponseEntity.ok(ApiResponse.success("文章下线成功", offline));
+            // 从 ES 删除索引
+            indexPipelineService.deleteIndex(id);
+            return ResponseEntity.ok(ApiResponse.success("文章下线成功，已从检索索引中移除", offline));
         } catch (Exception e) {
             return ResponseEntity.ok(ApiResponse.error(e.getMessage()));
         }
@@ -107,6 +118,9 @@ public class StudioController {
     @DeleteMapping("/articles/{id}")
     public ResponseEntity<ApiResponse<Void>> deleteArticle(@PathVariable Long id) {
         try {
+            // 先从 ES 删除索引
+            indexPipelineService.deleteIndex(id);
+            // 再删除文章本身
             articleService.deleteArticle(id);
             return ResponseEntity.ok(ApiResponse.success("文章删除成功", null));
         } catch (Exception e) {
@@ -133,6 +147,17 @@ public class StudioController {
     @PostMapping("/reindex-all")
     public ResponseEntity<ApiResponse<Void>> reindexAll() {
         try {
+            // 先检查索引健康
+            ElasticsearchInitializer.IndexHealth health = esInitializer.checkIndexHealth();
+            if (!health.isEsConnected()) {
+                return ResponseEntity.ok(ApiResponse.error("Elasticsearch 连接失败，请检查服务状态"));
+            }
+            
+            // 如果索引不存在，先初始化
+            if (!health.isIndexExists()) {
+                esInitializer.initializeIndex();
+            }
+            
             List<ArticleDTO> articles = articleService.getPublishedArticles();
             for (ArticleDTO article : articles) {
                 indexPipelineService.reindex(article.getId());
@@ -140,6 +165,19 @@ public class StudioController {
             return ResponseEntity.ok(ApiResponse.success("已提交 " + articles.size() + " 个索引任务", null));
         } catch (Exception e) {
             return ResponseEntity.ok(ApiResponse.error(e.getMessage()));
+        }
+    }
+    
+    /**
+     * 检查索引健康状态
+     */
+    @GetMapping("/index-health")
+    public ResponseEntity<ApiResponse<ElasticsearchInitializer.IndexHealth>> checkIndexHealth() {
+        try {
+            ElasticsearchInitializer.IndexHealth health = esInitializer.checkIndexHealth();
+            return ResponseEntity.ok(ApiResponse.success(health));
+        } catch (Exception e) {
+            return ResponseEntity.ok(ApiResponse.error("检查失败: " + e.getMessage()));
         }
     }
 }
