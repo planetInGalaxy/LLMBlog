@@ -71,9 +71,9 @@ public class StudioController {
         try {
             ArticleDTO updated = articleService.updateArticle(id, dto);
             
-            // 如果是已发布状态，自动触发重新索引
+            // 如果是已发布状态，强制触发重新索引（因为可能修改了标题、标签等元数据）
             if ("PUBLISHED".equals(updated.getStatus())) {
-                indexPipelineService.triggerIndex(id);
+                indexPipelineService.triggerIndex(id, true);  // force=true，强制更新
             }
             
             return ResponseEntity.ok(ApiResponse.success("文章更新成功", updated));
