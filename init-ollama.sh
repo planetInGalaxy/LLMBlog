@@ -14,12 +14,23 @@ echo "========================================"
 
 # 检查 Ollama 服务是否运行
 echo "📡 检查 Ollama 服务状态..."
+docker-compose ps ollama
+
 if ! docker-compose ps ollama | grep -q "Up"; then
-    echo "❌ Ollama 服务未运行，请先执行: docker-compose up -d"
+    echo "❌ Ollama 服务未运行"
+    echo ""
+    echo "🔍 查看 Ollama 日志..."
+    docker logs lingdang-ollama 2>&1 | tail -50
+    echo ""
+    echo "请先执行: docker-compose up -d"
     exit 1
 fi
 
 echo "✅ Ollama 服务运行中"
+
+echo ""
+echo "📝 Ollama 容器日志（最近 20 行）..."
+docker logs lingdang-ollama 2>&1 | tail -20
 
 # 等待 Ollama 完全启动
 echo "⏳ 等待 Ollama 完全启动（约 10 秒）..."
@@ -27,12 +38,32 @@ sleep 10
 
 # 检查 Ollama 健康状态
 echo "🔍 检查 Ollama 健康状态..."
-if curl -f http://localhost:11434/api/version > /dev/null 2>&1; then
-    echo "✅ Ollama API 可访问"
-else
-    echo "⚠️  Ollama API 暂不可访问，再等待 10 秒..."
-    sleep 10
-fi
+for i in {1..5}; do
+    if curl -f http://localhost:11434/api/version > /dev/null 2>&1; then
+        echo "✅ Ollama API 可访问（第 $i 次尝试成功）"
+        break
+    else
+        echo "⏳ Ollama API 未就绪，等待中...（第 $i 次尝试）"
+        if [ $i -eq 5 ]; then
+            echo ""
+            echo "❌ Ollama API 无法访问"
+            echo ""
+            echo "🔍 诊断信息："
+            echo "1. 容器状态："
+            docker ps -a | grep ollama
+            echo ""
+            echo "2. 容器日志："
+            docker logs lingdang-ollama 2>&1 | tail -50
+            echo ""
+            echo "3. 端口监听："
+            docker exec lingdang-ollama netstat -tlnp 2>/dev/null || echo "netstat 不可用"
+            echo ""
+            echo "请检查上述日志，然后重试"
+            exit 1
+        fi
+        sleep 10
+    fi
+done
 
 # 下载 Embedding 模型
 echo ""

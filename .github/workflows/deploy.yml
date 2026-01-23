@@ -59,13 +59,40 @@ jobs:
               echo "🏗️ 构建镜像..."
               docker compose build
               
-              echo ""
-              echo "🚀 启动所有服务（包括 Ollama）..."
-              docker compose up -d
-              
-              echo ""
-              echo "⏳ 等待服务完全启动（60秒）..."
-              sleep 60
+            echo ""
+            echo "🚀 启动所有服务（包括 Ollama）..."
+            docker compose up -d
+            
+            echo ""
+            echo "📊 检查 Ollama 容器状态..."
+            docker ps -a | grep ollama
+            
+            echo ""
+            echo "📝 查看 Ollama 启动日志..."
+            docker logs lingdang-ollama 2>&1 | tail -50 || echo "获取日志失败"
+            
+            echo ""
+            echo "⏳ 等待 Ollama 服务启动（最多 120 秒）..."
+            for i in {1..24}; do
+              if docker exec lingdang-ollama ps aux | grep -q ollama; then
+                echo "✅ Ollama 进程已启动（${i}次检查）"
+                break
+              fi
+              echo "⏳ 等待中... ($i/24)"
+              sleep 5
+            done
+            
+            echo ""
+            echo "🔍 测试 Ollama API..."
+            docker exec lingdang-ollama curl -s http://localhost:11434/api/version || echo "⚠️ API 未就绪"
+            
+            echo ""
+            echo "📋 Ollama 容器详细信息..."
+            docker inspect lingdang-ollama | grep -A 10 "Health"
+            
+            echo ""
+            echo "⏳ 再等待 30 秒确保服务稳定..."
+            sleep 30
               
               echo ""
               echo "📥 初始化 Ollama 模型（首次需要下载 270MB）..."
@@ -80,19 +107,24 @@ jobs:
               docker compose restart backend
               
             else
-              echo ""
-              echo "🔄 日常更新模式：仅重启后端..."
-              
-              # 确保所有服务运行中
-              docker compose up -d
-              
-              # 重新构建后端（如果代码变化）
-              docker compose build backend
-              
-              # 仅重启后端
-              docker compose restart backend
-              
-              echo "✅ 后端已更新重启"
+            echo ""
+            echo "🔄 日常更新模式：仅重启后端..."
+            
+            # 确保所有服务运行中
+            docker compose up -d
+            
+            echo ""
+            echo "📊 检查 Ollama 状态..."
+            docker ps | grep ollama
+            docker logs lingdang-ollama 2>&1 | tail -20
+            
+            # 重新构建后端（如果代码变化）
+            docker compose build backend
+            
+            # 仅重启后端
+            docker compose restart backend
+            
+            echo "✅ 后端已更新重启"
             fi
             
             echo ""
