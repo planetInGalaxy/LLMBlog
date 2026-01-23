@@ -108,23 +108,22 @@ jobs:
               
             else
             echo ""
-            echo "🔄 日常更新模式：仅重启后端..."
+            echo "🔄 日常更新模式：重新构建并重启..."
             
-            # 确保所有服务运行中
-            docker compose up -d
+            echo ""
+            echo "🏗️ 重新构建前端和后端..."
+            docker compose build frontend backend
+            
+            echo ""
+            echo "🔄 重启前端和后端..."
+            docker compose up -d --force-recreate frontend backend
             
             echo ""
             echo "📊 检查 Ollama 状态..."
             docker ps | grep ollama
             docker logs lingdang-ollama 2>&1 | tail -20
             
-            # 重新构建后端（如果代码变化）
-            docker compose build backend
-            
-            # 仅重启后端
-            docker compose restart backend
-            
-            echo "✅ 后端已更新重启"
+            echo "✅ 前端和后端已更新重启"
             fi
             
             echo ""
