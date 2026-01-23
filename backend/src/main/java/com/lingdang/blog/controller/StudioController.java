@@ -3,6 +3,7 @@ package com.lingdang.blog.controller;
 import com.lingdang.blog.dto.ApiResponse;
 import com.lingdang.blog.dto.article.ArticleDTO;
 import com.lingdang.blog.service.ArticleService;
+import com.lingdang.blog.service.IndexPipelineService;
 import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
