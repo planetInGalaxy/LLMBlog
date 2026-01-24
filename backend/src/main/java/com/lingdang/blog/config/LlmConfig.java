@@ -43,6 +43,15 @@ public class LlmConfig {
     private boolean useOllamaEmbedding = false;
     
     /**
+     * 深度思考模式类型
+     * 取值：enabled、disabled、auto
+     * - enabled：开启思考模式，模型强制先思考再回答
+     * - disabled：关闭思考模式，模型直接回答问题，不进行思考
+     * - auto：自动思考模式，模型根据问题自主判断是否需要思考
+     */
+    private String thinkingType = "disabled";
+    
+    /**
      * 连接超时（毫秒）
      */
     private long connectTimeout = 30000;

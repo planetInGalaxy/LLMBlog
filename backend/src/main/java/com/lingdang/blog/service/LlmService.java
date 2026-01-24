@@ -230,6 +230,13 @@ public class LlmService {
             maxTokens
         );
         
+        // 配置深度思考模式（豆包专用）
+        String thinkingType = llmConfig.getThinkingType();
+        if (thinkingType != null && !thinkingType.isEmpty()) {
+            request.setThinking(new ChatCompletionRequest.ThinkingConfig(thinkingType));
+            log.debug("深度思考模式: {}", thinkingType);
+        }
+        
         // 添加 stream 参数
         String requestBody = objectMapper.writeValueAsString(request).replace("}", ",\"stream\":true}");
         log.debug("LLM 请求体: {}", requestBody.length() > 500 ? requestBody.substring(0, 500) + "..." : requestBody);

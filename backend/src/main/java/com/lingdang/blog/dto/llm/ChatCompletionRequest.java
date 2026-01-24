@@ -1,6 +1,7 @@
 package com.lingdang.blog.dto.llm;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import lombok.AllArgsConstructor;
 import lombok.Data;
@@ -14,6 +15,7 @@ import java.util.List;
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
+@JsonInclude(JsonInclude.Include.NON_NULL)
 public class ChatCompletionRequest {
     
     /**
@@ -36,6 +38,25 @@ public class ChatCompletionRequest {
      */
     @JsonProperty("max_tokens")
     private Integer maxTokens;
+    
+    /**
+     * 深度思考配置（豆包专用）
+     */
+    private ThinkingConfig thinking;
+    
+    /**
+     * 深度思考配置
+     */
+    @Data
+    @NoArgsConstructor
+    @AllArgsConstructor
+    @JsonInclude(JsonInclude.Include.NON_NULL)
+    public static class ThinkingConfig {
+        /**
+         * 思考类型：enabled、disabled、auto
+         */
+        private String type;
+    }
     
     @Data
     @NoArgsConstructor
