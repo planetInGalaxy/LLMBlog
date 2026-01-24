@@ -141,10 +141,24 @@ public class ElasticsearchInitializer {
                 return health;
             }
             
-            // 获取文档数量
-            long count = esClient.count(c -> c.index(INDEX_NAME)).count();
-            health.setDocumentCount(count);
+            // 获取 chunks 总数
+            long chunkCount = esClient.count(c -> c.index(INDEX_NAME)).count();
+            health.setDocumentCount(chunkCount);
             
+            // 获取去重后的文章数量（使用 cardinality aggregation）
+            var aggResponse = esClient.search(s -> s
+                .index(INDEX_NAME)
+                .size(0) // 不需要返回文档
+                .aggregations("unique_articles", a -> a
+                    .cardinality(c -> c.field("articleId"))
+                ), Object.class);
+            
+            long articleCount = aggResponse.aggregations()
+                .get("unique_articles")
+                .cardinality()
+                .value();
+            
+            health.setArticleCount(articleCount);
             health.setHealthy(true);
             health.setMessage("索引健康");
             
@@ -164,7 +178,8 @@ public class ElasticsearchInitializer {
         private boolean healthy;
         private boolean esConnected;
         private boolean indexExists;
-        private long documentCount;
+        private long documentCount;  // chunks 总数
+        private long articleCount;   // 去重后的文章数量
         private String message;
         
         // Getters and Setters
@@ -182,6 +197,9 @@ public class ElasticsearchInitializer {
         
         public long getDocumentCount() { return documentCount; }
         public void setDocumentCount(long documentCount) { this.documentCount = documentCount; }
+        
+        public long getArticleCount() { return articleCount; }
+        public void setArticleCount(long articleCount) { this.articleCount = articleCount; }
         
         public String getMessage() { return message; }
         public void setMessage(String message) { this.message = message; }

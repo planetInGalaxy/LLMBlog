@@ -702,6 +702,10 @@ function StudioArticleList() {
               <strong>{indexHealth.indexExists ? '✅ 是' : '❌ 否'}</strong>
             </div>
             <div className="health-item">
+              <span>文章数量：</span>
+              <strong>{indexHealth.articleCount || 0}</strong>
+            </div>
+            <div className="health-item">
               <span>文档数量：</span>
               <strong>{indexHealth.documentCount}</strong>
             </div>

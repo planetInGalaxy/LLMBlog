@@ -392,9 +392,23 @@ public class RagService {
     
     /**
      * 提取引用（只提取已经过滤的高相关度文章）
+     * 重要：按 articleId 去重，同一篇文章只显示一次
      */
     private List<AssistantResponse.Citation> extractCitations(List<RetrievalResult> results) {
-        return results.stream()
+        // 按 articleId 分组，每篇文章只取相关度最高的 chunk
+        Map<Long, RetrievalResult> bestChunkPerArticle = new HashMap<>();
+        
+        for (RetrievalResult result : results) {
+            Long articleId = result.getArticleId();
+            if (!bestChunkPerArticle.containsKey(articleId) || 
+                result.getFinalScore() > bestChunkPerArticle.get(articleId).getFinalScore()) {
+                bestChunkPerArticle.put(articleId, result);
+            }
+        }
+        
+        // 转换为 Citation 列表（按分数降序）
+        return bestChunkPerArticle.values().stream()
+            .sorted((a, b) -> Double.compare(b.getFinalScore(), a.getFinalScore()))
             .map(result -> {
                 AssistantResponse.Citation citation = new AssistantResponse.Citation();
                 citation.setTitle(result.getTitle());
@@ -546,13 +560,18 @@ public class RagService {
                     .data("抱歉，文章库中未找到与您问题高度相关的内容（相关度 < 80%）。"));
             }
             
-            // 7. 发送引用
+            // 7. 发送引用（只有高相关度文章才发送）
             if (hasArticles) {
                 List<AssistantResponse.Citation> citations = extractCitations(highRelevanceResults);
-                log.info("发送引用: request_id={}, citations={}", requestId, citations.size());
-                emitter.send(SseEmitter.event()
-                    .name("citations")
-                    .data(new ObjectMapper().writeValueAsString(citations)));
+                log.info("发送引用: request_id={}, 去重后文章数={}", requestId, citations.size());
+                if (!citations.isEmpty()) {
+                    emitter.send(SseEmitter.event()
+                        .name("citations")
+                        .data(new ObjectMapper().writeValueAsString(citations)));
+                }
+            } else {
+                // 无高相关度文章，也不发送引用
+                log.info("无高相关度文章（< 80%），不发送引用: request_id={}", requestId);
             }
             
             // 7. 完成
