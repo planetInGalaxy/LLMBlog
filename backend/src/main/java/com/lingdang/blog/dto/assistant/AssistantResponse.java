@@ -33,6 +33,11 @@ public class AssistantResponse {
     @Data
     public static class Citation {
         /**
+         * 引用编号（对应答案中的 [1]、[2] 等角标）
+         */
+        private Integer refIndex;
+        
+        /**
          * 文章标题
          */
         private String title;

@@ -472,6 +472,72 @@ nav a:hover {
   margin-top: 0.5rem;
 }
 
+/* ========== 参考文章卡片 ========== */
+.citation-card {
+  background: var(--bg-color);
+  padding: 1rem 1.25rem;
+  border-radius: var(--radius);
+  margin-bottom: 0.75rem;
+  border-left: 4px solid var(--primary-color);
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  transition: all 0.2s ease;
+}
+
+.citation-card:hover {
+  transform: translateX(4px);
+  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+}
+
+.citation-ref-index {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 28px;
+  height: 28px;
+  background: var(--primary-color);
+  color: white;
+  font-weight: 700;
+  font-size: 0.85rem;
+  border-radius: 6px;
+  flex-shrink: 0;
+}
+
+.citation-card a {
+  color: var(--text-color);
+  text-decoration: none;
+  flex: 1;
+}
+
+.citation-card a:hover {
+  color: var(--primary-color);
+}
+
+.citation-card a strong {
+  font-weight: 600;
+}
+
+.citation-score {
+  background: var(--success-color);
+  color: white;
+  padding: 0.25rem 0.75rem;
+  border-radius: 12px;
+  font-size: 0.8rem;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.citation-quote {
+  width: 100%;
+  color: var(--text-light);
+  font-style: italic;
+  font-size: 0.9rem;
+  margin: 0.5rem 0 0 0;
+  padding-left: 36px;
+}
+
 /* ========== Studio 登录 ========== */
 .studio-login {
   min-height: 80vh;

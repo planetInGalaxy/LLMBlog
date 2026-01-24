@@ -299,8 +299,10 @@ function AssistantPage() {
             if (line.startsWith('event:')) {
               eventType = line.slice(6).trim();
             } else if (line.startsWith('data:')) {
-              // 关键：不要 trim，保留原始数据（包括换行符等）
-              eventData = line.slice(5);
+              // SSE 标准：多行 data 用换行符连接
+              // 例如 data:line1\ndata:line2 => "line1\nline2"
+              const dataContent = line.slice(5);
+              eventData += (eventData ? '\n' : '') + dataContent;
             }
           }
           
@@ -443,6 +445,7 @@ function AssistantPage() {
                           <h4>📚 参考文章：</h4>
                           {msg.citations.map((cite, i) => (
                             <div key={i} className="citation-card">
+                              <span className="citation-ref-index">[{cite.refIndex || (i + 1)}]</span>
                               <a href={cite.url} target="_blank" rel="noopener noreferrer">
                                 <strong>{cite.title}</strong>
                               </a>

@@ -49,19 +49,25 @@ public class RagService {
     private static final String SYSTEM_PROMPT_WITH_ARTICLES = """
         你是铃铛师兄大模型博客的智能助手。你的任务是基于提供的文章片段回答用户的问题。
         
-        **重要规则**：
-        1. 只基于提供的文章片段回答，不要编造信息
-        2. 如果文章中没有相关信息，明确告知用户"文章库中未找到相关依据"
+        **回答规则**：
+        1. 只基于提供的参考文章回答，不要编造信息
+        2. 如果文章中没有相关信息，明确告知用户
         3. 回答要准确、简洁、专业
-        4. 在回答中标注引用来源（使用 [1]、[2] 等标记）
+        4. **引用格式**：在回答中引用文章时，使用角标 [1]、[2] 等标注来源，数字对应参考文章列表的编号
         5. 保持中文回答
+        
+        **Markdown 格式要求**（非常重要）：
+        - 标题使用 ## 或 ###，且**前后必须有空行**
+        - 列表使用 - 或 1. 2. 3.，列表前需要空行
+        - 代码使用 ``` 包裹
+        - 重点内容使用 **粗体**
         """;
     
     private static final String SYSTEM_PROMPT_FLEXIBLE = """
         你是铃铛师兄大模型博客的智能助手，也是大模型和AI领域的专家。
         
         **你的职责**：
-        1. 如果提供了相关文章片段，优先基于文章内容回答，并标注引用来源
+        1. 如果提供了相关文章片段，优先基于文章内容回答，并标注引用来源 [1]、[2]
         2. 如果没有相关文章或文章信息不足，可以基于你的专业知识回答
         3. 回答要准确、专业、有深度，特别在大模型、AI技术、机器学习等领域
         4. 保持中文回答，语言友好易懂
@@ -73,6 +79,12 @@ public class RagService {
         - 机器学习算法和深度学习
         - 自然语言处理（NLP）
         - 技术博客写作和知识分享
+        
+        **Markdown 格式要求**（非常重要）：
+        - 标题使用 ## 或 ###，且**前后必须有空行**
+        - 列表使用 - 或 1. 2. 3.，列表前需要空行
+        - 代码使用 ``` 包裹
+        - 重点内容使用 **粗体**
         """;
     
     /**
@@ -358,20 +370,36 @@ public class RagService {
     
     /**
      * 构建 Prompt
+     * 
+     * 重要：按文章（articleId）去重并编号，确保 LLM 生成的引用 [1]、[2] 与参考文章列表对应
      */
     private String buildPrompt(String question, List<RetrievalResult> results) {
         StringBuilder prompt = new StringBuilder();
         prompt.append("**用户问题**：\n").append(question).append("\n\n");
-        prompt.append("**相关文章片段**：\n\n");
+        prompt.append("**参考文章**：\n\n");
         
-        int index = 1;
+        // 按 articleId 去重，保留每篇文章所有相关 chunks（但编号按文章）
+        Map<Long, List<RetrievalResult>> articleChunks = new LinkedHashMap<>();
         for (RetrievalResult result : results) {
-            prompt.append(String.format("[%d] 《%s》\n", index, result.getTitle()));
-            prompt.append(result.getChunkText()).append("\n\n");
-            index++;
+            articleChunks.computeIfAbsent(result.getArticleId(), k -> new ArrayList<>()).add(result);
         }
         
-        prompt.append("**请基于以上文章片段回答用户问题**。");
+        int articleIndex = 1;
+        for (Map.Entry<Long, List<RetrievalResult>> entry : articleChunks.entrySet()) {
+            List<RetrievalResult> chunks = entry.getValue();
+            String title = chunks.get(0).getTitle();
+            
+            prompt.append(String.format("[%d] 《%s》\n", articleIndex, title));
+            
+            // 合并同一篇文章的所有 chunks
+            for (RetrievalResult chunk : chunks) {
+                prompt.append(chunk.getChunkText()).append("\n\n");
+            }
+            
+            articleIndex++;
+        }
+        
+        prompt.append("**请基于以上参考文章回答用户问题，在回答中用 [1]、[2] 等角标标注引用来源**。");
         
         return prompt.toString();
     }
@@ -392,11 +420,13 @@ public class RagService {
     
     /**
      * 提取引用（只提取已经过滤的高相关度文章）
+     * 
      * 重要：按 articleId 去重，同一篇文章只显示一次
+     * 编号顺序与 buildPrompt 中的文章编号保持一致（按出现顺序）
      */
     private List<AssistantResponse.Citation> extractCitations(List<RetrievalResult> results) {
-        // 按 articleId 分组，每篇文章只取相关度最高的 chunk
-        Map<Long, RetrievalResult> bestChunkPerArticle = new HashMap<>();
+        // 按 articleId 去重，保持原始顺序（使用 LinkedHashMap）
+        Map<Long, RetrievalResult> bestChunkPerArticle = new LinkedHashMap<>();
         
         for (RetrievalResult result : results) {
             Long articleId = result.getArticleId();
@@ -406,20 +436,23 @@ public class RagService {
             }
         }
         
-        // 转换为 Citation 列表（按分数降序）
-        return bestChunkPerArticle.values().stream()
-            .sorted((a, b) -> Double.compare(b.getFinalScore(), a.getFinalScore()))
-            .map(result -> {
-                AssistantResponse.Citation citation = new AssistantResponse.Citation();
-                citation.setTitle(result.getTitle());
-                citation.setUrl("/blog/" + result.getSlug() + 
-                    (result.getAnchor() != null && !result.getAnchor().isEmpty() ? "#" + result.getAnchor() : ""));
-                citation.setQuote(""); // 不显示文章内容，只显示标题
-                citation.setChunkId(result.getChunkId());
-                citation.setScore(result.getFinalScore()); // 已归一化到 0.0 ~ 1.0，且 >= 0.8
-                return citation;
-            })
-            .collect(Collectors.toList());
+        // 转换为 Citation 列表，添加 refIndex（从 1 开始编号）
+        List<AssistantResponse.Citation> citations = new ArrayList<>();
+        int refIndex = 1;
+        
+        for (RetrievalResult result : bestChunkPerArticle.values()) {
+            AssistantResponse.Citation citation = new AssistantResponse.Citation();
+            citation.setRefIndex(refIndex++); // 引用编号，对应答案中的 [1]、[2]
+            citation.setTitle(result.getTitle());
+            citation.setUrl("/blog/" + result.getSlug() + 
+                (result.getAnchor() != null && !result.getAnchor().isEmpty() ? "#" + result.getAnchor() : ""));
+            citation.setQuote(""); // 不显示文章内容，只显示标题
+            citation.setChunkId(result.getChunkId());
+            citation.setScore(result.getFinalScore()); // 已归一化到 0.0 ~ 1.0，且 >= 0.8
+            citations.add(citation);
+        }
+        
+        return citations;
     }
     
     /**
