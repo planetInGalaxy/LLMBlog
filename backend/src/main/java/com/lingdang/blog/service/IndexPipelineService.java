@@ -16,6 +16,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * 索引流水线服务
@@ -50,6 +51,9 @@ public class IndexPipelineService {
     
     private static final String INDEX_NAME = "lingdang_chunks_v1";
     
+    // 并发控制：跟踪正在执行索引的文章 ID
+    private final ConcurrentHashMap<Long, Boolean> indexingArticles = new ConcurrentHashMap<>();
+    
     /**
      * 触发索引（发布时调用）- 会检查内容是否变化
      */
@@ -65,8 +69,15 @@ public class IndexPipelineService {
      */
     @Transactional
     public Long triggerIndex(Long articleId, boolean force) {
-        Article article = articleRepository.findById(articleId)
-            .orElseThrow(() -> new RuntimeException("文章不存在: " + articleId));
+        // 检查是否已有该文章的索引任务正在执行
+        if (indexingArticles.putIfAbsent(articleId, true) != null) {
+            log.warn("文章 {} 的索引任务正在执行，跳过本次请求", articleId);
+            return null;
+        }
+        
+        try {
+            Article article = articleRepository.findById(articleId)
+                .orElseThrow(() -> new RuntimeException("文章不存在: " + articleId));
         
         // 检查 ES 索引是否存在
         try {
@@ -124,6 +135,10 @@ public class IndexPipelineService {
         executeIndexAsync(savedJob.getId());
         
         return savedJob.getId();
+        } finally {
+            // 无论成功失败，都释放锁
+            indexingArticles.remove(articleId);
+        }
     }
     
     /**
