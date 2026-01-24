@@ -231,13 +231,13 @@ function AssistantPage() {
     setLoading(true);
 
     try {
-      // 构建历史对话（只发送用户和助手的对话内容）
+      // 构建历史对话
       const history = messages.map(msg => ({
         role: msg.role,
         content: msg.content
       }));
 
-      // 使用 fetch 流式接收响应
+      // 使用 EventSource 或 fetch 流式接收
       const response = await fetch(`${API_URL}/assistant/query/stream`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -257,6 +257,24 @@ function AssistantPage() {
       let buffer = '';
       let fullAnswer = '';
       let citations = [];
+      let currentEvent = 'message';
+      
+      // 使用 ref 存储内容，减少 React 渲染次数
+      let pendingUpdate = false;
+      
+      const scheduleUpdate = () => {
+        if (!pendingUpdate) {
+          pendingUpdate = true;
+          requestAnimationFrame(() => {
+            setMessages(prev => {
+              const updated = [...prev];
+              updated[updated.length - 1].content = fullAnswer;
+              return updated;
+            });
+            pendingUpdate = false;
+          });
+        }
+      };
 
       while (true) {
         const { done, value } = await reader.read();
@@ -265,58 +283,61 @@ function AssistantPage() {
         // 解码新数据
         buffer += decoder.decode(value, { stream: true });
         
-        // 按行处理
-        const lines = buffer.split('\n');
-        buffer = lines.pop() || ''; // 保留未完成的行
+        // SSE 格式：event:xxx\ndata:xxx\n\n
+        // 按双换行分割事件
+        const events = buffer.split('\n\n');
+        buffer = events.pop() || ''; // 保留未完成的事件
         
-        let currentEvent = 'message';
-        
-        for (const line of lines) {
-          if (!line.trim()) continue;
+        for (const eventBlock of events) {
+          if (!eventBlock.trim()) continue;
           
-          if (line.startsWith('event:')) {
-            currentEvent = line.slice(6).trim();
-          } else if (line.startsWith('data:')) {
-            const data = line.slice(5).trim();
-            
-            if (!data) continue; // 跳过空数据
-            
-            // 处理不同类型的事件
-            if (currentEvent === 'message') {
-              // 直接添加数据块，实现流畅的流式效果
-              fullAnswer += data;
-              setMessages(prev => {
-                const updated = [...prev];
-                updated[updated.length - 1].content = fullAnswer;
-                return updated;
-              });
-            } else if (currentEvent === 'citations') {
-              try {
-                citations = JSON.parse(data);
-                setMessages(prev => {
-                  const updated = [...prev];
-                  updated[updated.length - 1].citations = citations;
-                  return updated;
-                });
-              } catch (e) {
-                console.warn('解析 citations 失败:', e);
-              }
-            } else if (currentEvent === 'done') {
-              setMessages(prev => {
-                const updated = [...prev];
-                updated[updated.length - 1].streaming = false;
-                return updated;
-              });
-              setLoading(false);
-            } else if (currentEvent === 'error') {
-              throw new Error(data || '服务器错误');
+          const lines = eventBlock.split('\n');
+          let eventType = 'message';
+          let eventData = '';
+          
+          for (const line of lines) {
+            if (line.startsWith('event:')) {
+              eventType = line.slice(6).trim();
+            } else if (line.startsWith('data:')) {
+              // 关键：不要 trim，保留原始数据（包括换行符等）
+              eventData = line.slice(5);
             }
+          }
+          
+          // 处理不同类型的事件
+          if (eventType === 'message') {
+            // 直接追加内容，保留原始格式
+            fullAnswer += eventData;
+            scheduleUpdate();
+          } else if (eventType === 'citations') {
+            try {
+              citations = JSON.parse(eventData);
+              setMessages(prev => {
+                const updated = [...prev];
+                updated[updated.length - 1].citations = citations;
+                return updated;
+              });
+            } catch (e) {
+              console.warn('解析 citations 失败:', e);
+            }
+          } else if (eventType === 'done') {
+            setMessages(prev => {
+              const updated = [...prev];
+              updated[updated.length - 1].content = fullAnswer;
+              updated[updated.length - 1].streaming = false;
+              return updated;
+            });
+            setLoading(false);
+          } else if (eventType === 'error') {
+            throw new Error(eventData || '服务器错误');
           }
         }
       }
 
+      // 确保最终状态正确
       setMessages(prev => {
         const updated = [...prev];
+        updated[updated.length - 1].content = fullAnswer;
         updated[updated.length - 1].streaming = false;
         return updated;
       });
