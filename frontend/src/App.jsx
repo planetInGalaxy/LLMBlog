@@ -207,6 +207,33 @@ function AssistantPage() {
   const [loading, setLoading] = useState(false);
   const messagesEndRef = useRef(null);
 
+  // 规范化 Markdown：修复流式输出导致的换行缺失问题（避免把多个标题/列表粘到一行）
+  // 只处理代码块之外的内容，尽量不影响 ``` fenced code block
+  const normalizeMarkdown = (text) => {
+    if (!text) return text;
+
+    // 统一换行符（SSE/代理有时会带 \r\n）
+    const normalized = String(text).replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+
+    // 以 ``` 为界拆分，偶数段为非代码块，奇数段为代码块内容
+    const parts = normalized.split(/```/);
+    for (let i = 0; i < parts.length; i += 2) {
+      let t = parts[i];
+
+      // 1) 修复 “上一行文本#### 下一节” 这种标题粘连：在非行首出现的 ##~###### 前补空行
+      //    例：xxx#### 一、...  => xxx\n\n#### 一、...
+      t = t.replace(/([^\n])\s*(#{2,6}\s)/g, '$1\n\n$2');
+
+      // 2) 修复 “#### 三、xxx- 列表项” 这种标题和列表粘连：标题后强制空行
+      //    例：#### 三、xxx- a  => #### 三、xxx\n\n- a
+      t = t.replace(/^(#{2,6}[^\n]*?)(\s*)(- |\d+\. )/gm, '$1\n\n$3');
+
+      parts[i] = t;
+    }
+
+    return parts.join('```');
+  };
+
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   };
@@ -282,6 +309,8 @@ function AssistantPage() {
 
         // 解码新数据
         buffer += decoder.decode(value, { stream: true });
+        // 统一处理 CRLF，避免 \r 影响 SSE/Markdown 解析
+        buffer = buffer.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
         
         // SSE 格式：event:xxx\ndata:xxx\n\n
         // 按双换行分割事件
@@ -436,7 +465,7 @@ function AssistantPage() {
                             em: ({children}) => <em>{children}</em>,
                           }}
                         >
-                          {msg.content || '思考中...'}
+                          {normalizeMarkdown(msg.content || '思考中...')}
                         </ReactMarkdown>
                       </div>
                       
