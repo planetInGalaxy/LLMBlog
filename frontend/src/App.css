@@ -784,8 +784,13 @@ nav a:hover {
   font-size: 1.3rem;
 }
 
-.markdown-body h4 {
-  font-size: 1.1rem;
+.markdown-body h5 {
+  font-size: 1rem;
+}
+
+.markdown-body h6 {
+  font-size: 0.95rem;
+  color: var(--text-light);
 }
 
 .markdown-body p {

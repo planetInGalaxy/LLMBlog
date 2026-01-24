@@ -710,10 +710,6 @@ function StudioArticleList() {
               <strong>{indexHealth.documentCount}</strong>
             </div>
             <div className="health-item">
-              <span>文章数量：</span>
-              <strong>{indexHealth.articleCount || 0}</strong>
-            </div>
-            <div className="health-item">
               <span>状态：</span>
               <strong className={indexHealth.healthy ? 'text-success' : 'text-error'}>
                 {indexHealth.message}
