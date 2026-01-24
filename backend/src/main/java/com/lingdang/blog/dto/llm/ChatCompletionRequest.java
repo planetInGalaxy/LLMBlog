@@ -14,7 +14,6 @@ import java.util.List;
  */
 @Data
 @NoArgsConstructor
-@AllArgsConstructor
 @JsonInclude(JsonInclude.Include.NON_NULL)
 public class ChatCompletionRequest {
     
@@ -43,6 +42,16 @@ public class ChatCompletionRequest {
      * 深度思考配置（豆包专用）
      */
     private ThinkingConfig thinking;
+    
+    /**
+     * 构造函数（兼容旧代码）
+     */
+    public ChatCompletionRequest(String model, List<ChatMessage> messages, Double temperature, Integer maxTokens) {
+        this.model = model;
+        this.messages = messages;
+        this.temperature = temperature;
+        this.maxTokens = maxTokens;
+    }
     
     /**
      * 深度思考配置

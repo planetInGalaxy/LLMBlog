@@ -706,8 +706,12 @@ function StudioArticleList() {
               <strong>{indexHealth.articleCount || 0}</strong>
             </div>
             <div className="health-item">
-              <span>文档数量：</span>
+              <span>文档数量（chunks）：</span>
               <strong>{indexHealth.documentCount}</strong>
+            </div>
+            <div className="health-item">
+              <span>文章数量：</span>
+              <strong>{indexHealth.articleCount || 0}</strong>
             </div>
             <div className="health-item">
               <span>状态：</span>
