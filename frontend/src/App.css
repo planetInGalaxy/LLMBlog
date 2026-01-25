@@ -30,6 +30,11 @@ body {
   line-height: 1.6;
 }
 
+html,
+body {
+  overflow-x: hidden;
+}
+
 .app {
   min-height: 100vh;
   display: flex;
@@ -266,6 +271,11 @@ nav a:hover {
   text-decoration: underline;
   text-decoration-color: var(--secondary-color);
   text-decoration-thickness: 2px;
+}
+
+.contact-highlight a {
+  color: inherit;
+  text-decoration: none;
 }
 
 /* 按钮样式 */
@@ -939,6 +949,7 @@ nav a:hover {
   width: 100%;
   border-collapse: collapse;
   margin: 1rem 0;
+  table-layout: fixed;
 }
 
 .markdown-body th,
@@ -946,6 +957,7 @@ nav a:hover {
   border: 1px solid var(--border-color);
   padding: 0.8rem;
   text-align: left;
+  word-break: break-word;
 }
 
 .markdown-body th {
@@ -1152,6 +1164,17 @@ nav a:hover {
   font-size: 0.95em;
 }
 
+.markdown-body .react-syntax-highlighter,
+.message-assistant .react-syntax-highlighter {
+  max-width: 100%;
+}
+
+.markdown-body .react-syntax-highlighter code,
+.message-assistant .react-syntax-highlighter code {
+  white-space: pre-wrap !important;
+  word-break: break-word;
+}
+
 .message-assistant .message-text blockquote {
   border-left: 4px solid var(--primary-color);
   padding-left: 1.2rem;
@@ -1323,6 +1346,113 @@ nav a:hover {
   .article-table th,
   .article-table td {
     padding: 0.5rem;
+  }
+}
+
+@media (max-width: 480px) {
+  nav {
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+
+  nav a {
+    padding: 0.5rem 0.75rem;
+  }
+
+  .hero-section {
+    padding: 2.5rem 1.25rem;
+  }
+
+  .hero-section h1 {
+    font-size: 1.75rem;
+  }
+
+  .hero-section p {
+    font-size: 1rem;
+  }
+
+  .about-section {
+    padding: 1.25rem;
+  }
+
+  .section-header {
+    margin-bottom: 1.5rem;
+  }
+
+  .section-header h2 {
+    font-size: 1.6rem;
+  }
+
+  .about-content {
+    grid-template-columns: 1fr;
+  }
+
+  .about-card {
+    padding: 1.25rem;
+  }
+
+  .keywords-section {
+    padding: 1.25rem;
+  }
+
+  .keyword-tag {
+    padding: 0.5rem 0.9rem;
+    font-size: 0.95rem;
+  }
+
+  .contact-section {
+    padding: 1.75rem 1.25rem;
+  }
+
+  .contact-highlight {
+    font-size: 1.05rem;
+  }
+
+  .contact-highlight strong {
+    font-size: 1.1rem;
+  }
+
+  .article-content {
+    padding: 1.25rem;
+  }
+
+  .article-header {
+    padding-bottom: 1.25rem;
+    margin-bottom: 1.5rem;
+  }
+
+  .article-header h1 {
+    font-size: 1.75rem;
+  }
+
+  .article-meta {
+    flex-wrap: wrap;
+    gap: 0.75rem;
+  }
+
+  .markdown-body pre,
+  .message-assistant .message-text pre {
+    overflow-x: hidden;
+  }
+
+  .markdown-body th,
+  .markdown-body td {
+    padding: 0.6rem;
+  }
+
+  .chat-messages {
+    padding: 1rem;
+  }
+
+  .chat-input-form {
+    flex-direction: column;
+    align-items: stretch;
+    padding: 1rem;
+  }
+
+  .chat-input-form button {
+    width: 100%;
+    padding: 0.9rem 1.25rem;
   }
 }
 

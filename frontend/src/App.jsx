@@ -73,7 +73,18 @@ function HomePage() {
       {/* 联系方式区 */}
       <section className="contact-section">
         <h3>📱 联系我们</h3>
-        <p className="contact-highlight">请小红书搜索：<strong>铃铛师兄大模型求职辅导</strong>，获取更多干货</p>
+        <p className="contact-highlight">
+          请小红书搜索：
+          <a
+            className="contact-link"
+            href="https://xhslink.com/m/7hzXlmKpfXR"
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            <strong>铃铛师兄大模型求职辅导</strong>
+          </a>
+          ，获取更多干货
+        </p>
       </section>
     </div>
   );
@@ -173,7 +184,7 @@ function BlogDetailPage() {
           <ReactMarkdown
             remarkPlugins={[remarkGfm]}
             components={{
-              code({ node, inline, className, children, ...props }) {
+              code({ inline, className, children, ...props }) {
                 const match = /language-(\w+)/.exec(className || '');
                 return !inline && match ? (
                   <SyntaxHighlighter
@@ -284,7 +295,6 @@ function AssistantPage() {
       let buffer = '';
       let fullAnswer = '';
       let citations = [];
-      let currentEvent = 'message';
       
       // 使用 ref 存储内容，减少 React 渲染次数
       let pendingUpdate = false;
@@ -436,7 +446,7 @@ function AssistantPage() {
                         <ReactMarkdown
                           remarkPlugins={[remarkGfm]}
                           components={{
-                            code({ node, inline, className, children, ...props }) {
+                            code({ inline, className, children, ...props }) {
                               const match = /language-(\w+)/.exec(className || '');
                               return !inline && match ? (
                                 <SyntaxHighlighter
