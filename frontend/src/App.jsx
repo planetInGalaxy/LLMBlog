@@ -216,6 +216,7 @@ function AssistantPage() {
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
   const messagesEndRef = useRef(null);
 
   // 规范化 Markdown：修复流式输出导致的换行缺失问题（避免把多个标题/列表粘到一行）
@@ -257,6 +258,14 @@ function AssistantPage() {
   useEffect(() => {
     scrollToBottom();
   }, [messages]);
+
+  useEffect(() => {
+    const mediaQuery = window.matchMedia('(max-width: 480px)');
+    const handleChange = (event) => setIsMobile(event.matches);
+    handleChange(mediaQuery);
+    mediaQuery.addEventListener('change', handleChange);
+    return () => mediaQuery.removeEventListener('change', handleChange);
+  }, []);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -520,7 +529,7 @@ function AssistantPage() {
           value={input}
           onChange={(e) => setInput(e.target.value)}
           onKeyPress={handleKeyPress}
-          placeholder="输入问题... (Enter 发送，Shift+Enter 换行)"
+          placeholder={isMobile ? '输入问题...' : '输入问题... (Enter 发送，Shift+Enter 换行)'}
           rows={3}
           disabled={loading}
         />
@@ -963,7 +972,7 @@ function App() {
 
   return (
     <div className="app">
-      <header className="header">
+      <header className={`header${isAssistant ? ' header-assistant' : ''}`}>
         <div className="container">
           <Link to="/" className="logo">🔔 铃铛师兄大模型</Link>
           <nav>

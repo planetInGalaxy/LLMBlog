@@ -1372,8 +1372,12 @@ nav a:hover {
     padding: 0 1rem;
   }
 
+  .header.header-assistant {
+    display: none;
+  }
+
   .main.main-assistant {
-    padding: 1.35rem 0 1rem;
+    padding: 1rem 0 0.75rem;
   }
 
   .assistant-page {
@@ -1381,8 +1385,8 @@ nav a:hover {
     margin: 0 -1rem;
     padding: 0 0.5rem;
     max-width: none;
-    height: calc(100vh - 96px);
-    height: calc(100dvh - 96px);
+    height: calc(100vh - 72px);
+    height: calc(100dvh - 72px);
   }
 
   .chat-header {
@@ -1412,7 +1416,7 @@ nav a:hover {
   }
 
   .chat-input-form {
-    padding: 0.65rem;
+    padding: 0.6rem;
     border-radius: 16px;
   }
 
@@ -1543,7 +1547,7 @@ nav a:hover {
   }
 
   .main.main-assistant {
-    padding: 1.15rem 0 0.85rem;
+    padding: 0.85rem 0 0.65rem;
   }
 
   .chat-header h1 {
@@ -1557,6 +1561,11 @@ nav a:hover {
   .chat-messages {
     padding: 0.85rem 0.7rem;
     margin: 0.45rem 0;
+  }
+
+  .assistant-page {
+    height: calc(100vh - 60px);
+    height: calc(100dvh - 60px);
   }
 
   .chat-input-form {
@@ -1574,7 +1583,6 @@ nav a:hover {
   }
 
   .chat-input-form button {
-    order: -1;
     width: auto;
     padding: 0.55rem 0.9rem;
     border-radius: 12px;
