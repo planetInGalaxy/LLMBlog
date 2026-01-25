@@ -3,7 +3,6 @@ package com.lingdang.blog.service;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
-import com.google.common.util.concurrent.RateLimiter;
 import com.lingdang.blog.config.RateLimitConfig;
 import com.lingdang.blog.repository.AssistantLogRepository;
 import lombok.extern.slf4j.Slf4j;
@@ -11,6 +10,8 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
+import java.util.ArrayDeque;
+import java.util.Deque;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 
@@ -27,21 +28,18 @@ public class RateLimitService {
     @Autowired
     private AssistantLogRepository assistantLogRepository;
     
-    // IP 限流器缓存
-    private final LoadingCache<String, RateLimiter> ipRateLimiters;
+    // IP 请求时间窗口缓存
+    private final LoadingCache<String, Deque<Long>> ipRequestTimes;
     
     public RateLimitService() {
-        // 创建 IP 限流器缓存（10分钟过期）
-        this.ipRateLimiters = CacheBuilder.newBuilder()
+        // 创建 IP 请求时间窗口缓存（10分钟过期）
+        this.ipRequestTimes = CacheBuilder.newBuilder()
             .expireAfterAccess(10, TimeUnit.MINUTES)
             .maximumSize(10000)
-            .build(new CacheLoader<String, RateLimiter>() {
+            .build(new CacheLoader<String, Deque<Long>>() {
                 @Override
-                public RateLimiter load(String key) {
-                    // 从配置读取，默认每小时360次（6次/分钟）
-                    int permitsPerHour = rateLimitConfig.getAssistant().getPermitsPerHour();
-                    double permitsPerSecond = (double) permitsPerHour / 3600.0;
-                    return RateLimiter.create(permitsPerSecond);
+                public Deque<Long> load(String key) {
+                    return new ArrayDeque<>();
                 }
             });
     }
@@ -51,9 +49,26 @@ public class RateLimitService {
      */
     public boolean allowRequest(String clientIp) {
         try {
-            // 使用 Guava RateLimiter
-            RateLimiter limiter = ipRateLimiters.get(clientIp);
-            boolean allowed = limiter.tryAcquire();
+            int limitPerMinute = getLimitPerMinute();
+            if (limitPerMinute <= 0) {
+                return true;
+            }
+
+            Deque<Long> timestamps = ipRequestTimes.get(clientIp);
+            long now = System.currentTimeMillis();
+            boolean allowed;
+
+            synchronized (timestamps) {
+                long windowStart = now - 60_000L;
+                while (!timestamps.isEmpty() && timestamps.peekFirst() < windowStart) {
+                    timestamps.pollFirst();
+                }
+
+                allowed = timestamps.size() < limitPerMinute;
+                if (allowed) {
+                    timestamps.addLast(now);
+                }
+            }
             
             if (!allowed) {
                 log.warn("限流触发: ip={}", clientIp);
@@ -81,5 +96,13 @@ public class RateLimitService {
         long count = getRequestCount(clientIp, 1);
         int limit = rateLimitConfig.getAssistant().getPermitsPerHour();
         return count >= limit;
+    }
+
+    private int getLimitPerMinute() {
+        int permitsPerHour = rateLimitConfig.getAssistant().getPermitsPerHour();
+        if (permitsPerHour <= 0) {
+            return 0;
+        }
+        return Math.max(1, (int) Math.round(permitsPerHour / 60.0));
     }
 }
