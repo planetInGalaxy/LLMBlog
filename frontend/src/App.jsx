@@ -1,4 +1,4 @@
-import { Routes, Route, Link, useNavigate, useParams } from 'react-router-dom';
+import { Routes, Route, Link, useNavigate, useParams, useLocation } from 'react-router-dom';
 import { useState, useEffect, useRef } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
@@ -958,6 +958,9 @@ function StudioArticleEdit() {
 
 // ==================== 主应用 ====================
 function App() {
+  const location = useLocation();
+  const isAssistant = location.pathname.startsWith('/assistant');
+
   return (
     <div className="app">
       <header className="header">
@@ -972,7 +975,7 @@ function App() {
         </div>
       </header>
 
-      <main className="main">
+      <main className={`main${isAssistant ? ' main-assistant' : ''}`}>
         <div className="container">
           <Routes>
             <Route path="/" element={<HomePage />} />
