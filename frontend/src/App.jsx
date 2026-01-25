@@ -260,6 +260,28 @@ function AssistantPage() {
   }, [messages]);
 
   useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const mediaQuery = window.matchMedia('(max-width: 768px)');
+    if (!mediaQuery.matches) return;
+
+    const header = document.querySelector('.header');
+    if (!header) return;
+
+    const scrollToContent = () => {
+      const headerHeight = header.getBoundingClientRect().height;
+      if (headerHeight > 0) {
+        window.scrollTo({ top: Math.ceil(headerHeight) + 1, behavior: 'auto' });
+      }
+    };
+
+    const rafId = requestAnimationFrame(() => {
+      setTimeout(scrollToContent, 0);
+    });
+
+    return () => cancelAnimationFrame(rafId);
+  }, []);
+
+  useEffect(() => {
     const mediaQuery = window.matchMedia('(max-width: 480px)');
     const handleChange = (event) => setIsMobile(event.matches);
     handleChange(mediaQuery);
