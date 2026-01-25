@@ -436,12 +436,16 @@ function AssistantPage() {
           <div key={idx} className={`message message-${msg.role}`}>
             {msg.role === 'user' ? (
               <div className="message-content">
-                <div className="message-avatar">👤</div>
+                <div className="message-avatar avatar-user" aria-hidden="true">
+                  <span>你</span>
+                </div>
                 <div className="message-text">{msg.content}</div>
               </div>
             ) : (
               <div className="message-content">
-                <div className="message-avatar">🤖</div>
+                <div className="message-avatar avatar-assistant" aria-hidden="true">
+                  <span>AI</span>
+                </div>
                 <div className="message-text">
                   {msg.error ? (
                     <p className="error-text">{msg.content}</p>

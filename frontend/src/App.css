@@ -979,11 +979,12 @@ nav a:hover {
 
 /* ========== AI 助手聊天界面 (覆盖旧样式) ========== */
 .assistant-page {
-  max-width: 1000px !important;
-  margin: 0 auto !important;
-  height: calc(100vh - 200px) !important;
-  display: flex !important;
-  flex-direction: column !important;
+  width: 100%;
+  max-width: 1200px;
+  margin: 0 auto;
+  height: calc(100vh - 200px);
+  display: flex;
+  flex-direction: column;
 }
 
 .chat-header {
@@ -1059,33 +1060,73 @@ nav a:hover {
 .message {
   margin-bottom: 1.5rem;
   animation: fadeIn 0.3s;
+  display: flex;
+  width: 100%;
+}
+
+.message-user {
+  justify-content: flex-end;
+}
+
+.message-assistant {
+  justify-content: flex-start;
 }
 
 .message-content {
   display: flex;
-  gap: 1rem;
+  gap: 0.85rem;
   align-items: flex-start;
+  max-width: 90%;
 }
 
 .message-avatar {
-  font-size: 2rem;
+  width: 42px;
+  height: 42px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: #ffffff;
   flex-shrink: 0;
+  border: 2px solid #ffffff;
+  box-shadow: 0 8px 18px rgba(15, 23, 42, 0.16);
+  background: #94a3b8;
+}
+
+.message-avatar span {
+  line-height: 1;
+  letter-spacing: 0.5px;
+}
+
+.message-avatar.avatar-user {
+  background: linear-gradient(135deg, #fb7185, #f97316);
+}
+
+.message-avatar.avatar-assistant {
+  background: linear-gradient(135deg, #22c55e, #14b8a6);
+}
+
+.message-user .message-content {
+  flex-direction: row-reverse;
 }
 
 .message-text {
   flex: 1;
   background: var(--card-bg);
-  padding: 1.5rem;
-  border-radius: var(--radius-lg);
+  padding: 1.2rem 1.35rem;
+  border-radius: 18px;
   box-shadow: var(--shadow);
   line-height: 1.8;
   word-wrap: break-word;
   overflow-wrap: break-word;
+  position: relative;
 }
 
 .message-user .message-text {
   background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
   color: white;
+  border-top-right-radius: 8px;
 }
 
 .message-user .message-text * {
@@ -1094,6 +1135,8 @@ nav a:hover {
 
 .message-assistant .message-text {
   background: white;
+  border: 1px solid rgba(15, 23, 42, 0.08);
+  border-top-left-radius: 8px;
 }
 
 /* ========== 助手消息中的 Markdown 样式优化 ========== */
@@ -1225,39 +1268,46 @@ nav a:hover {
   display: flex;
   gap: 1rem;
   align-items: flex-end;
-  background: var(--card-bg);
-  padding: 1.5rem;
-  border-radius: var(--radius-lg);
+  background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
+  padding: 1.25rem;
+  border-radius: 18px;
   box-shadow: var(--shadow-lg);
+  border: 1px solid rgba(15, 23, 42, 0.08);
 }
 
 .chat-input-form textarea {
   flex: 1;
-  padding: 1rem;
-  border: 2px solid var(--border-color);
-  border-radius: var(--radius);
+  padding: 0.95rem 1rem;
+  border: 1px solid #e2e8f0;
+  border-radius: 14px;
   font-size: 1rem;
   font-family: inherit;
-  resize: none;
-  transition: border-color 0.3s;
+  line-height: 1.5;
+  min-height: 3.25rem;
+  resize: vertical;
+  background: #f8fafc;
+  transition: border-color 0.3s, box-shadow 0.3s;
+  box-shadow: inset 0 1px 2px rgba(15, 23, 42, 0.05);
 }
 
 .chat-input-form textarea:focus {
   outline: none;
   border-color: var(--primary-color);
+  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.18);
 }
 
 .chat-input-form button {
-  padding: 1rem 2rem;
+  padding: 0.95rem 1.8rem;
   background: var(--primary-color);
   color: white;
   border: none;
-  border-radius: var(--radius);
+  border-radius: 14px;
   font-size: 1rem;
   font-weight: 600;
   cursor: pointer;
   transition: all 0.3s;
   white-space: nowrap;
+  box-shadow: 0 10px 16px rgba(99, 102, 241, 0.25);
 }
 
 .chat-input-form button:hover:not(:disabled) {
@@ -1320,6 +1370,49 @@ nav a:hover {
 @media (max-width: 768px) {
   .container {
     padding: 0 1rem;
+  }
+
+  .assistant-page {
+    width: calc(100% + 2rem);
+    margin: 0 -1rem;
+    padding: 0 0.5rem;
+    max-width: none;
+    height: calc(100vh - 160px);
+    height: calc(100dvh - 160px);
+  }
+
+  .chat-header {
+    padding: 1.25rem 0 0.75rem;
+  }
+
+  .chat-messages {
+    padding: 1rem 0.85rem;
+    border-radius: 16px;
+  }
+
+  .message-content {
+    max-width: 100%;
+    gap: 0.65rem;
+  }
+
+  .message-avatar {
+    width: 36px;
+    height: 36px;
+    font-size: 0.85rem;
+  }
+
+  .message-text {
+    padding: 1rem 1.05rem;
+    border-radius: 16px;
+  }
+
+  .chat-input-form {
+    padding: 0.9rem;
+    border-radius: 16px;
+  }
+
+  .chat-input-form textarea {
+    min-height: 2.9rem;
   }
 
   .header .container {
@@ -1441,18 +1534,18 @@ nav a:hover {
   }
 
   .chat-messages {
-    padding: 1rem;
+    padding: 0.85rem 0.7rem;
   }
 
   .chat-input-form {
     flex-direction: column;
     align-items: stretch;
-    padding: 1rem;
+    padding: 0.85rem;
   }
 
   .chat-input-form button {
     width: 100%;
-    padding: 0.9rem 1.25rem;
+    padding: 0.85rem 1.1rem;
   }
 }
 
