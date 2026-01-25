@@ -990,7 +990,7 @@ function App() {
         </div>
       </main>
 
-      <footer className="footer">
+      <footer className={`footer${isAssistant ? ' footer-assistant' : ''}`}>
         <div className="container">
           <p>© 2026 铃铛师兄大模型 | 专注AI技术分享</p>
         </div>

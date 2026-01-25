@@ -1373,7 +1373,7 @@ nav a:hover {
   }
 
   .main.main-assistant {
-    padding: 1.75rem 0 1.25rem;
+    padding: 1.35rem 0 1rem;
   }
 
   .assistant-page {
@@ -1381,18 +1381,18 @@ nav a:hover {
     margin: 0 -1rem;
     padding: 0 0.5rem;
     max-width: none;
-    height: calc(100vh - 120px);
-    height: calc(100dvh - 120px);
+    height: calc(100vh - 96px);
+    height: calc(100dvh - 96px);
   }
 
   .chat-header {
-    padding: 0.9rem 0 0.6rem;
+    padding: 0.7rem 0 0.5rem;
   }
 
   .chat-messages {
     padding: 0.85rem 0.85rem;
     border-radius: 16px;
-    margin: 0.6rem 0;
+    margin: 0.5rem 0;
   }
 
   .message-content {
@@ -1412,7 +1412,7 @@ nav a:hover {
   }
 
   .chat-input-form {
-    padding: 0.75rem;
+    padding: 0.65rem;
     border-radius: 16px;
   }
 
@@ -1444,6 +1444,10 @@ nav a:hover {
   .article-table th,
   .article-table td {
     padding: 0.5rem;
+  }
+
+  .footer.footer-assistant {
+    display: none;
   }
 }
 
@@ -1539,23 +1543,47 @@ nav a:hover {
   }
 
   .main.main-assistant {
-    padding: 1.5rem 0 1rem;
+    padding: 1.15rem 0 0.85rem;
+  }
+
+  .chat-header h1 {
+    font-size: 1.5rem;
+  }
+
+  .chat-header p {
+    font-size: 0.95rem;
   }
 
   .chat-messages {
     padding: 0.85rem 0.7rem;
-    margin: 0.5rem 0;
+    margin: 0.45rem 0;
   }
 
   .chat-input-form {
-    flex-direction: column;
-    align-items: stretch;
-    padding: 0.7rem;
+    flex-direction: row;
+    align-items: center;
+    padding: 0.55rem;
+    gap: 0.6rem;
+  }
+
+  .chat-input-form textarea {
+    min-height: 2.4rem;
+    height: 2.4rem;
+    padding: 0.5rem 0.7rem;
+    resize: none;
   }
 
   .chat-input-form button {
-    width: 100%;
-    padding: 0.85rem 1.1rem;
+    order: -1;
+    width: auto;
+    padding: 0.55rem 0.9rem;
+    border-radius: 12px;
+    font-size: 0.95rem;
+    box-shadow: none;
+  }
+
+  .footer.footer-assistant {
+    display: none;
   }
 }
 
