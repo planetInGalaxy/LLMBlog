@@ -336,18 +336,18 @@ function AssistantPage() {
           
           const lines = eventBlock.split('\n');
           let eventType = 'message';
-          let eventData = '';
-          
+          const dataLines = [];
+
           for (const line of lines) {
             if (line.startsWith('event:')) {
               eventType = line.slice(6).trim();
             } else if (line.startsWith('data:')) {
-              // SSE 标准：多行 data 用换行符连接
-              // 例如 data:line1\ndata:line2 => "line1\nline2"
-              const dataContent = line.slice(5);
-              eventData += (eventData ? '\n' : '') + dataContent;
+              // SSE 标准：逐行 data 以 \n 连接，空行也必须保留
+              dataLines.push(line.slice(5));
             }
           }
+
+          const eventData = dataLines.join('\n');
           
           // 处理不同类型的事件
           if (eventType === 'message') {
