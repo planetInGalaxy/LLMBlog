@@ -331,18 +331,6 @@ function AssistantPage() {
     // Prefer CSS-based hide (more reliable than scrolling, and only affects /assistant on mobile)
     document.body.classList.add('assistant-hide-header');
 
-    // Keep the old scroll behavior as a fallback in case header is not fixed/sticky
-    const header = document.querySelector('.header');
-    if (header) {
-      const headerHeight = header.getBoundingClientRect().height;
-      if (headerHeight > 0) {
-        const targetScroll = Math.ceil(headerHeight) + 1;
-        if (window.scrollY < targetScroll - 2) {
-          window.scrollTo({ top: targetScroll, behavior: 'auto' });
-        }
-      }
-    }
-
     autoHideHeaderRef.current = true;
   }, []);
 
@@ -352,15 +340,8 @@ function AssistantPage() {
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
-    const mediaQuery = window.matchMedia('(max-width: 768px)');
-    if (!mediaQuery.matches) return;
-
-    const rafId = requestAnimationFrame(() => {
-      setTimeout(hideMobileHeader, 0);
-    });
 
     return () => {
-      cancelAnimationFrame(rafId);
       document.body.classList.remove('assistant-hide-header');
       autoHideHeaderRef.current = false;
     };
@@ -542,8 +523,8 @@ function AssistantPage() {
             <p>您可以问我任何关于文章内容的问题，我会基于知识库为您解答。</p>
             <div className="example-questions">
               <p><strong>示例问题：</strong></p>
-              <button onClick={() => setInput('文章主要讲了哪些内容？')}>文章主要讲了哪些内容？</button>
-              <button onClick={() => setInput('有哪些关键技术点？')}>有哪些关键技术点？</button>
+              <button onClick={() => { hideMobileHeader(); setInput('文章主要讲了哪些内容？'); }}>文章主要讲了哪些内容？</button>
+              <button onClick={() => { hideMobileHeader(); setInput('有哪些关键技术点？'); }}>有哪些关键技术点？</button>
             </div>
           </div>
         )}
