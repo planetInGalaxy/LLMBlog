@@ -457,7 +457,7 @@ function AssistantPage() {
             <p>您可以问我任何关于文章内容的问题，我会基于知识库为您解答。</p>
             <div className="example-questions">
               <p><strong>示例问题：</strong></p>
-              <button onClick={() => setInput('文章主要讲了什么内容？')}>文章主要讲了什么内容？</button>
+              <button onClick={() => setInput('文章主要讲了哪些内容？')}>文章主要讲了哪些内容？</button>
               <button onClick={() => setInput('有哪些关键技术点？')}>有哪些关键技术点？</button>
             </div>
           </div>
