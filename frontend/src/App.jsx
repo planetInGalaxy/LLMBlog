@@ -1,5 +1,5 @@
 import { Routes, Route, Link, NavLink, useNavigate, useParams, useLocation } from 'react-router-dom';
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
@@ -283,7 +283,6 @@ function AssistantPage() {
   const [loading, setLoading] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
   const messagesEndRef = useRef(null);
-  const autoHideHeaderRef = useRef(false);
 
   // 规范化 Markdown：修复流式输出导致的换行缺失问题（避免把多个标题/列表粘到一行）
   // 只处理代码块之外的内容，尽量不影响 ``` fenced code block
@@ -321,31 +320,9 @@ function AssistantPage() {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   };
 
-  const hideMobileHeader = useCallback(() => {
-    if (autoHideHeaderRef.current) return;
-    if (typeof window === 'undefined') return;
-
-    const mediaQuery = window.matchMedia('(max-width: 768px)');
-    if (!mediaQuery.matches) return;
-
-    // Prefer CSS-based hide (more reliable than scrolling, and only affects /assistant on mobile)
-    document.body.classList.add('assistant-hide-header');
-
-    autoHideHeaderRef.current = true;
-  }, []);
-
   useEffect(() => {
     scrollToBottom();
   }, [messages]);
-
-  useEffect(() => {
-    if (typeof window === 'undefined') return;
-
-    return () => {
-      document.body.classList.remove('assistant-hide-header');
-      autoHideHeaderRef.current = false;
-    };
-  }, [hideMobileHeader]);
 
   useEffect(() => {
     const mediaQuery = window.matchMedia('(max-width: 480px)');
@@ -510,21 +487,21 @@ function AssistantPage() {
   };
 
   return (
-    <div className="assistant-page" onPointerDown={hideMobileHeader} onTouchStart={hideMobileHeader}>
+    <div className="assistant-page">
       <div className="chat-header">
         <h1>🤖 AI 学习助手</h1>
         <p>基于您的文章知识库，智能回答问题</p>
       </div>
 
-      <div className="chat-messages" onScroll={hideMobileHeader}>
+      <div className="chat-messages">
         {messages.length === 0 && (
           <div className="welcome-message">
             <h2>👋 欢迎使用 AI 学习助手</h2>
             <p>您可以问我任何关于文章内容的问题，我会基于知识库为您解答。</p>
             <div className="example-questions">
               <p><strong>示例问题：</strong></p>
-              <button onClick={() => { hideMobileHeader(); setInput('文章主要讲了哪些内容？'); }}>文章主要讲了哪些内容？</button>
-              <button onClick={() => { hideMobileHeader(); setInput('有哪些关键技术点？'); }}>有哪些关键技术点？</button>
+              <button onClick={() => { setInput('文章主要讲了哪些内容？'); }}>文章主要讲了哪些内容？</button>
+              <button onClick={() => { setInput('有哪些关键技术点？'); }}>有哪些关键技术点？</button>
             </div>
           </div>
         )}
@@ -617,7 +594,6 @@ function AssistantPage() {
           value={input}
           onChange={(e) => setInput(e.target.value)}
           onKeyPress={handleKeyPress}
-          onFocus={hideMobileHeader}
           placeholder={isMobile ? '输入问题...' : '输入问题... (Enter 发送，Shift+Enter 换行)'}
           rows={3}
           disabled={loading}
@@ -1059,6 +1035,27 @@ function App() {
   const location = useLocation();
   const isAssistant = location.pathname.startsWith('/assistant');
   const isStudioActive = location.pathname.startsWith('/studio');
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return undefined;
+
+    const mediaQuery = window.matchMedia('(max-width: 768px)');
+    const updateBodyClass = () => {
+      if (isAssistant && mediaQuery.matches) {
+        document.body.classList.add('assistant-lock-scroll');
+      } else {
+        document.body.classList.remove('assistant-lock-scroll');
+      }
+    };
+
+    updateBodyClass();
+    mediaQuery.addEventListener('change', updateBodyClass);
+
+    return () => {
+      mediaQuery.removeEventListener('change', updateBodyClass);
+      document.body.classList.remove('assistant-lock-scroll');
+    };
+  }, [isAssistant]);
 
   return (
     <div className="app">

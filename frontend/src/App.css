@@ -1518,19 +1518,19 @@ nav a.is-active::after {
     position: static;
   }
 
-  body.assistant-hide-header .header.header-assistant {
-    display: none;
-  }
-
   .main.main-assistant {
     padding: 0;
   }
 
-  body.assistant-hide-header .main.main-assistant {
-    padding-top: 0;
+  body.assistant-lock-scroll {
+    overflow: hidden;
   }
 
-  body.assistant-hide-header .footer.footer-assistant {
+  body.assistant-lock-scroll .header.header-assistant {
+    display: none;
+  }
+
+  body.assistant-lock-scroll .footer.footer-assistant {
     display: none;
   }
 
@@ -1539,8 +1539,18 @@ nav a.is-active::after {
     margin: 0 -1rem;
     padding: 0 0.5rem;
     max-width: none;
-    height: 100vh;
+  }
+
+  body.assistant-lock-scroll .assistant-page {
     height: 100dvh;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  body.assistant-lock-scroll .chat-messages {
+    flex: 1;
+    overflow: auto;
   }
 
   .chat-header {
