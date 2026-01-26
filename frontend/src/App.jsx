@@ -1,4 +1,4 @@
-import { Routes, Route, Link, useNavigate, useParams, useLocation } from 'react-router-dom';
+import { Routes, Route, Link, NavLink, useNavigate, useParams, useLocation } from 'react-router-dom';
 import { useState, useEffect, useRef } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
@@ -8,6 +8,36 @@ import './App.css';
 
 // API 配置
 const API_URL = import.meta.env.VITE_API_URL || '/api';
+
+const SUMMARY_LENGTH = 80;
+
+const stripMarkdown = (markdown = '') => {
+  let text = String(markdown);
+
+  text = text.replace(/```[\s\S]*?```/g, ' ');
+  text = text.replace(/`[^`]*`/g, ' ');
+  text = text.replace(/!\[([^\]]*)\]\([^)]+\)/g, '$1');
+  text = text.replace(/\[([^\]]+)\]\([^)]+\)/g, '$1');
+  text = text.replace(/^\s{0,3}#{1,6}\s+/gm, '');
+  text = text.replace(/^\s{0,3}>\s?/gm, '');
+  text = text.replace(/^\s*([-*+]|\d+\.)\s+/gm, '');
+  text = text.replace(/(\*\*|__)(.*?)\1/g, '$2');
+  text = text.replace(/(\*|_)(.*?)\1/g, '$2');
+  text = text.replace(/~~(.*?)~~/g, '$1');
+  text = text.replace(/<\/?[^>]+>/g, ' ');
+  text = text.replace(/\s+/g, ' ').trim();
+
+  return text;
+};
+
+const getArticleSummary = (article) => {
+  const summary = (article?.summary || '').trim();
+  if (summary) return summary;
+
+  const fallback = stripMarkdown(article?.contentMarkdown || '');
+  if (!fallback) return '暂无摘要';
+  return fallback.slice(0, SUMMARY_LENGTH);
+};
 
 // ==================== 主页 ====================
 function HomePage() {
@@ -114,6 +144,18 @@ function BlogListPage() {
   };
 
   if (loading) return <div className="loading">加载中</div>;
+  if (articles.length === 0) {
+    return (
+      <div className="blog-list-page">
+        <div className="empty-state">
+          <div className="empty-icon" aria-hidden="true">📭</div>
+          <h1>暂无文章</h1>
+          <p>这里还没有发布的文章，先去首页看看吧。</p>
+          <Link to="/" className="btn btn-primary">返回首页</Link>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="blog-list-page">
@@ -122,7 +164,7 @@ function BlogListPage() {
         {articles.map(article => (
           <Link key={article.id} to={`/blog/${article.slug}`} className="article-card">
             <h2>{article.title}</h2>
-            <p className="summary">{article.summary}</p>
+            <p className="summary">{getArticleSummary(article)}</p>
             <div className="meta">
               <span>{new Date(article.publishedAt).toLocaleDateString()}</span>
               <span>{article.viewCount} 次浏览</span>
@@ -139,6 +181,7 @@ function BlogDetailPage() {
   const { slug } = useParams();
   const [article, setArticle] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [notFound, setNotFound] = useState(false);
 
   useEffect(() => {
     fetchArticle();
@@ -146,20 +189,42 @@ function BlogDetailPage() {
 
   const fetchArticle = async () => {
     try {
+      setLoading(true);
+      setNotFound(false);
+      setArticle(null);
       const response = await fetch(`${API_URL}/articles/${slug}`);
+      if (response.status === 404) {
+        setNotFound(true);
+        return;
+      }
       const result = await response.json();
-      if (result.success) {
+      if (response.ok && result.success && result.data) {
         setArticle(result.data);
+      } else {
+        setNotFound(true);
       }
     } catch (error) {
       console.error('获取文章失败:', error);
+      setNotFound(true);
     } finally {
       setLoading(false);
     }
   };
 
   if (loading) return <div className="loading">加载中</div>;
-  if (!article) return <div className="error">文章不存在</div>;
+  if (notFound) {
+    return (
+      <div className="blog-detail-page">
+        <div className="empty-state empty-state--detail">
+          <div className="empty-icon" aria-hidden="true">🔍</div>
+          <h1>文章不存在</h1>
+          <p>你访问的文章可能已被下线或链接有误。</p>
+          <Link to="/blog" className="btn btn-primary">返回博客列表</Link>
+        </div>
+      </div>
+    );
+  }
+  if (!article) return null;
 
   return (
     <div className="blog-detail-page">
@@ -991,6 +1056,7 @@ function StudioArticleEdit() {
 function App() {
   const location = useLocation();
   const isAssistant = location.pathname.startsWith('/assistant');
+  const isStudioActive = location.pathname.startsWith('/studio');
 
   return (
     <div className="app">
@@ -998,10 +1064,16 @@ function App() {
         <div className="container">
           <Link to="/" className="logo">🔔 铃铛师兄大模型</Link>
           <nav>
-            <Link to="/">首页</Link>
-            <Link to="/blog">博客</Link>
-            <Link to="/assistant">AI助手</Link>
-            <Link to="/studio/login">Studio</Link>
+            <NavLink to="/" end className={({ isActive }) => (isActive ? 'is-active' : '')}>首页</NavLink>
+            <NavLink to="/blog" className={({ isActive }) => (isActive ? 'is-active' : '')}>博客</NavLink>
+            <NavLink to="/assistant" className={({ isActive }) => (isActive ? 'is-active' : '')}>AI助手</NavLink>
+            <NavLink
+              to="/studio/login"
+              className={isStudioActive ? 'is-active' : ''}
+              aria-current={isStudioActive ? 'page' : undefined}
+            >
+              Studio
+            </NavLink>
           </nav>
         </div>
       </header>
