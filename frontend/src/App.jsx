@@ -328,16 +328,21 @@ function AssistantPage() {
     const mediaQuery = window.matchMedia('(max-width: 768px)');
     if (!mediaQuery.matches) return;
 
+    // Prefer CSS-based hide (more reliable than scrolling, and only affects /assistant on mobile)
+    document.body.classList.add('assistant-hide-header');
+
+    // Keep the old scroll behavior as a fallback in case header is not fixed/sticky
     const header = document.querySelector('.header');
-    if (!header) return;
-
-    const headerHeight = header.getBoundingClientRect().height;
-    if (headerHeight <= 0) return;
-
-    const targetScroll = Math.ceil(headerHeight) + 1;
-    if (window.scrollY < targetScroll - 2) {
-      window.scrollTo({ top: targetScroll, behavior: 'auto' });
+    if (header) {
+      const headerHeight = header.getBoundingClientRect().height;
+      if (headerHeight > 0) {
+        const targetScroll = Math.ceil(headerHeight) + 1;
+        if (window.scrollY < targetScroll - 2) {
+          window.scrollTo({ top: targetScroll, behavior: 'auto' });
+        }
+      }
     }
+
     autoHideHeaderRef.current = true;
   }, []);
 
@@ -349,11 +354,16 @@ function AssistantPage() {
     if (typeof window === 'undefined') return;
     const mediaQuery = window.matchMedia('(max-width: 768px)');
     if (!mediaQuery.matches) return;
+
     const rafId = requestAnimationFrame(() => {
       setTimeout(hideMobileHeader, 0);
     });
 
-    return () => cancelAnimationFrame(rafId);
+    return () => {
+      cancelAnimationFrame(rafId);
+      document.body.classList.remove('assistant-hide-header');
+      autoHideHeaderRef.current = false;
+    };
   }, [hideMobileHeader]);
 
   useEffect(() => {

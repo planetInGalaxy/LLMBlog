@@ -1518,8 +1518,20 @@ nav a.is-active::after {
     position: static;
   }
 
+  body.assistant-hide-header .header.header-assistant {
+    display: none;
+  }
+
   .main.main-assistant {
     padding: 0;
+  }
+
+  body.assistant-hide-header .main.main-assistant {
+    padding-top: 0;
+  }
+
+  body.assistant-hide-header .footer.footer-assistant {
+    display: none;
   }
 
   .assistant-page {
