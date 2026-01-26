@@ -1,5 +1,5 @@
 import { Routes, Route, Link, NavLink, useNavigate, useParams, useLocation } from 'react-router-dom';
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
@@ -283,6 +283,7 @@ function AssistantPage() {
   const [loading, setLoading] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
   const messagesEndRef = useRef(null);
+  const autoHideHeaderRef = useRef(false);
 
   // 规范化 Markdown：修复流式输出导致的换行缺失问题（避免把多个标题/列表粘到一行）
   // 只处理代码块之外的内容，尽量不影响 ``` fenced code block
@@ -320,6 +321,26 @@ function AssistantPage() {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   };
 
+  const hideMobileHeader = useCallback(() => {
+    if (autoHideHeaderRef.current) return;
+    if (typeof window === 'undefined') return;
+
+    const mediaQuery = window.matchMedia('(max-width: 768px)');
+    if (!mediaQuery.matches) return;
+
+    const header = document.querySelector('.header');
+    if (!header) return;
+
+    const headerHeight = header.getBoundingClientRect().height;
+    if (headerHeight <= 0) return;
+
+    const targetScroll = Math.ceil(headerHeight) + 1;
+    if (window.scrollY < targetScroll - 2) {
+      window.scrollTo({ top: targetScroll, behavior: 'auto' });
+    }
+    autoHideHeaderRef.current = true;
+  }, []);
+
   useEffect(() => {
     scrollToBottom();
   }, [messages]);
@@ -328,23 +349,12 @@ function AssistantPage() {
     if (typeof window === 'undefined') return;
     const mediaQuery = window.matchMedia('(max-width: 768px)');
     if (!mediaQuery.matches) return;
-
-    const header = document.querySelector('.header');
-    if (!header) return;
-
-    const scrollToContent = () => {
-      const headerHeight = header.getBoundingClientRect().height;
-      if (headerHeight > 0) {
-        window.scrollTo({ top: Math.ceil(headerHeight) + 1, behavior: 'auto' });
-      }
-    };
-
     const rafId = requestAnimationFrame(() => {
-      setTimeout(scrollToContent, 0);
+      setTimeout(hideMobileHeader, 0);
     });
 
     return () => cancelAnimationFrame(rafId);
-  }, []);
+  }, [hideMobileHeader]);
 
   useEffect(() => {
     const mediaQuery = window.matchMedia('(max-width: 480px)');
@@ -509,13 +519,13 @@ function AssistantPage() {
   };
 
   return (
-    <div className="assistant-page">
+    <div className="assistant-page" onPointerDown={hideMobileHeader} onTouchStart={hideMobileHeader}>
       <div className="chat-header">
         <h1>🤖 AI 学习助手</h1>
         <p>基于您的文章知识库，智能回答问题</p>
       </div>
 
-      <div className="chat-messages">
+      <div className="chat-messages" onScroll={hideMobileHeader}>
         {messages.length === 0 && (
           <div className="welcome-message">
             <h2>👋 欢迎使用 AI 学习助手</h2>
@@ -616,6 +626,7 @@ function AssistantPage() {
           value={input}
           onChange={(e) => setInput(e.target.value)}
           onKeyPress={handleKeyPress}
+          onFocus={hideMobileHeader}
           placeholder={isMobile ? '输入问题...' : '输入问题... (Enter 发送，Shift+Enter 换行)'}
           rows={3}
           disabled={loading}
