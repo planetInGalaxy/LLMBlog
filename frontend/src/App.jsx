@@ -10,6 +10,23 @@ import './App.css';
 const API_URL = import.meta.env.VITE_API_URL || '/api';
 
 const SUMMARY_LENGTH = 80;
+const STUDIO_AUTH_MESSAGE = '登录已过期，请重新登录';
+const STUDIO_SERVER_ERROR_MESSAGE = '服务器开小差了，请稍后再试';
+const ASSISTANT_REQUEST_TIMEOUT_MS = 60000;
+
+const handleStudioWriteResponse = async (response, navigate) => {
+  if (response.status === 401 || response.status === 403) {
+    alert(STUDIO_AUTH_MESSAGE);
+    localStorage.removeItem('token');
+    navigate('/studio/login');
+    return null;
+  }
+  if (response.status >= 500) {
+    alert(STUDIO_SERVER_ERROR_MESSAGE);
+    return null;
+  }
+  return response.json();
+};
 
 const stripMarkdown = (markdown = '') => {
   let text = String(markdown);
@@ -283,6 +300,11 @@ function AssistantPage() {
   const [loading, setLoading] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
   const messagesEndRef = useRef(null);
+  const abortControllerRef = useRef(null);
+  const timeoutRef = useRef(null);
+  const activeAssistantIndexRef = useRef(null);
+  const activeRequestIdRef = useRef(0);
+  const abortReasonRef = useRef(null);
 
   // 规范化 Markdown：修复流式输出导致的换行缺失问题（避免把多个标题/列表粘到一行）
   // 只处理代码块之外的内容，尽量不影响 ``` fenced code block
@@ -332,20 +354,90 @@ function AssistantPage() {
     return () => mediaQuery.removeEventListener('change', handleChange);
   }, []);
 
+  const markAssistantCancelled = (index) => {
+    if (index === null || index === undefined) return;
+    setMessages(prev => {
+      if (!prev[index]) return prev;
+      const updated = [...prev];
+      updated[index] = {
+        ...updated[index],
+        content: '已取消本次回复。',
+        error: false,
+        streaming: false
+      };
+      return updated;
+    });
+  };
+
+  const abortActiveStream = (reason, updateMessage = true) => {
+    if (abortControllerRef.current) {
+      abortReasonRef.current = reason;
+      abortControllerRef.current.abort();
+      abortControllerRef.current = null;
+    }
+    if (timeoutRef.current) {
+      clearTimeout(timeoutRef.current);
+      timeoutRef.current = null;
+    }
+    if (updateMessage && reason === 'manual') {
+      markAssistantCancelled(activeAssistantIndexRef.current);
+    }
+    activeAssistantIndexRef.current = null;
+  };
+
+  useEffect(() => {
+    return () => {
+      if (abortControllerRef.current) {
+        abortReasonRef.current = 'unmount';
+        abortControllerRef.current.abort();
+        abortControllerRef.current = null;
+      }
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current);
+        timeoutRef.current = null;
+      }
+    };
+  }, []);
+
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!input.trim() || loading) return;
+    if (!input.trim()) return;
+
+    if (abortControllerRef.current) {
+      abortActiveStream('manual');
+    }
 
     const userMessage = input.trim();
     setInput('');
     
     // 添加用户消息
     const newMessages = [...messages, { role: 'user', content: userMessage }];
-    setMessages(newMessages);
-    
-    // 添加助手占位消息
+    const assistantIndex = newMessages.length;
     setMessages([...newMessages, { role: 'assistant', content: '', citations: [], streaming: true }]);
     setLoading(true);
+
+    const requestId = activeRequestIdRef.current + 1;
+    activeRequestIdRef.current = requestId;
+    activeAssistantIndexRef.current = assistantIndex;
+
+    const controller = new AbortController();
+    abortControllerRef.current = controller;
+    abortReasonRef.current = null;
+
+    timeoutRef.current = setTimeout(() => {
+      abortReasonRef.current = 'timeout';
+      controller.abort();
+    }, ASSISTANT_REQUEST_TIMEOUT_MS);
+
+    const applyAssistantPatch = (patch) => {
+      if (activeRequestIdRef.current !== requestId) return;
+      setMessages(prev => {
+        if (!prev[assistantIndex]) return prev;
+        const updated = [...prev];
+        updated[assistantIndex] = { ...updated[assistantIndex], ...patch };
+        return updated;
+      });
+    };
 
     try {
       // 构建历史对话
@@ -362,7 +454,8 @@ function AssistantPage() {
           question: userMessage,
           mode: 'FLEXIBLE',
           history: history
-        })
+        }),
+        signal: controller.signal
       });
 
       if (!response.ok) {
@@ -382,11 +475,11 @@ function AssistantPage() {
         if (!pendingUpdate) {
           pendingUpdate = true;
           requestAnimationFrame(() => {
-            setMessages(prev => {
-              const updated = [...prev];
-              updated[updated.length - 1].content = fullAnswer;
-              return updated;
-            });
+            if (activeRequestIdRef.current !== requestId) {
+              pendingUpdate = false;
+              return;
+            }
+            applyAssistantPatch({ content: fullAnswer });
             pendingUpdate = false;
           });
         }
@@ -432,22 +525,16 @@ function AssistantPage() {
           } else if (eventType === 'citations') {
             try {
               citations = JSON.parse(eventData);
-              setMessages(prev => {
-                const updated = [...prev];
-                updated[updated.length - 1].citations = citations;
-                return updated;
-              });
+              applyAssistantPatch({ citations });
             } catch (e) {
               console.warn('解析 citations 失败:', e);
             }
           } else if (eventType === 'done') {
-            setMessages(prev => {
-              const updated = [...prev];
-              updated[updated.length - 1].content = fullAnswer;
-              updated[updated.length - 1].streaming = false;
-              return updated;
-            });
-            setLoading(false);
+            applyAssistantPatch({ content: fullAnswer, streaming: false });
+            if (activeRequestIdRef.current === requestId) {
+              setLoading(false);
+              activeAssistantIndexRef.current = null;
+            }
           } else if (eventType === 'error') {
             throw new Error(eventData || '服务器错误');
           }
@@ -455,27 +542,45 @@ function AssistantPage() {
       }
 
       // 确保最终状态正确
-      setMessages(prev => {
-        const updated = [...prev];
-        updated[updated.length - 1].content = fullAnswer;
-        updated[updated.length - 1].streaming = false;
-        return updated;
-      });
-      setLoading(false);
+      applyAssistantPatch({ content: fullAnswer, streaming: false });
+      if (activeRequestIdRef.current === requestId) {
+        setLoading(false);
+        activeAssistantIndexRef.current = null;
+      }
 
     } catch (error) {
+      if (activeRequestIdRef.current !== requestId) return;
+
+      if (error.name === 'AbortError') {
+        if (abortReasonRef.current === 'timeout') {
+          applyAssistantPatch({
+            content: '请求超时，请稍后再试。',
+            error: true,
+            streaming: false
+          });
+          setLoading(false);
+          activeAssistantIndexRef.current = null;
+        }
+        return;
+      }
+
       console.error('查询失败:', error);
-      setMessages(prev => {
-        const updated = [...prev];
-        updated[updated.length - 1] = {
-          role: 'assistant',
-          content: '抱歉，查询失败了，请稍后重试。',
-          error: true,
-          streaming: false
-        };
-        return updated;
+      applyAssistantPatch({
+        content: '抱歉，查询失败了，请稍后重试。',
+        error: true,
+        streaming: false
       });
       setLoading(false);
+      activeAssistantIndexRef.current = null;
+    } finally {
+      if (activeRequestIdRef.current === requestId) {
+        if (timeoutRef.current) {
+          clearTimeout(timeoutRef.current);
+          timeoutRef.current = null;
+        }
+        abortControllerRef.current = null;
+        abortReasonRef.current = null;
+      }
     }
   };
 
@@ -596,9 +701,8 @@ function AssistantPage() {
           onKeyPress={handleKeyPress}
           placeholder={isMobile ? '输入问题...' : '输入问题... (Enter 发送，Shift+Enter 换行)'}
           rows={3}
-          disabled={loading}
         />
-        <button type="submit" disabled={loading || !input.trim()}>
+        <button type="submit" disabled={!input.trim()}>
           {loading ? '思考中...' : '发送'}
         </button>
       </form>
@@ -719,7 +823,8 @@ function StudioArticleList() {
         method: 'PUT',
         headers: { 'Authorization': `Bearer ${token}` }
       });
-      const result = await response.json();
+      const result = await handleStudioWriteResponse(response, navigate);
+      if (!result) return;
       if (result.success) {
         alert('发布成功！索引任务已提交');
         fetchArticles();
@@ -740,7 +845,8 @@ function StudioArticleList() {
         method: 'PUT',
         headers: { 'Authorization': `Bearer ${token}` }
       });
-      const result = await response.json();
+      const result = await handleStudioWriteResponse(response, navigate);
+      if (!result) return;
       if (result.success) {
         alert('下线成功！');
         fetchArticles();
@@ -761,7 +867,8 @@ function StudioArticleList() {
         method: 'DELETE',
         headers: { 'Authorization': `Bearer ${token}` }
       });
-      const result = await response.json();
+      const result = await handleStudioWriteResponse(response, navigate);
+      if (!result) return;
       if (result.success) {
         alert('删除成功！');
         fetchArticles();
@@ -782,7 +889,8 @@ function StudioArticleList() {
         method: 'POST',
         headers: { 'Authorization': `Bearer ${token}` }
       });
-      const result = await response.json();
+      const result = await handleStudioWriteResponse(response, navigate);
+      if (!result) return;
       if (result.success) {
         alert('索引任务已提交！');
       } else {
@@ -803,16 +911,17 @@ function StudioArticleList() {
         method: 'POST',
         headers: { 'Authorization': `Bearer ${token}` }
       });
-      const result = await response.json();
+      const result = await handleStudioWriteResponse(response, navigate);
+      if (!result) return;
       if (result.success) {
         alert(result.message || '索引任务已全部提交！');
         fetchIndexHealth();
       } else {
-        alert(result.message);
+        alert(result.message || '全量重建索引失败，请稍后重试');
       }
     } catch (error) {
       console.error('全量重建索引失败:', error);
-      alert('操作失败，请稍后重试');
+      alert('全量重建索引失败，请稍后重试');
     } finally {
       setLoading(false);
     }
@@ -829,7 +938,7 @@ function StudioArticleList() {
             disabled={loading}
             className="btn-warning"
           >
-            {loading ? '执行中...' : '🔄 全量重建索引'}
+            {loading ? '重建中…' : '🔄 全量重建索引'}
           </button>
         </div>
       </div>
@@ -964,7 +1073,8 @@ function StudioArticleEdit() {
         },
         body: JSON.stringify(article)
       });
-      const result = await response.json();
+      const result = await handleStudioWriteResponse(response, navigate);
+      if (!result) return;
       if (result.success) {
         alert('保存成功！');
         navigate('/studio/articles');

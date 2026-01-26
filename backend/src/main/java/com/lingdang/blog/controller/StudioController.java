@@ -146,6 +146,10 @@ public class StudioController {
      */
     @PostMapping("/reindex-all")
     public ResponseEntity<ApiResponse<Void>> reindexAll() {
+        if (!indexPipelineService.tryStartFullReindex()) {
+            return ResponseEntity.ok(ApiResponse.error("全量重建索引已在进行"));
+        }
+
         try {
             // 先检查索引健康
             ElasticsearchInitializer.IndexHealth health = esInitializer.checkIndexHealth();
@@ -159,12 +163,22 @@ public class StudioController {
             }
             
             List<ArticleDTO> articles = articleService.getPublishedArticles();
+            int submitted = 0;
             for (ArticleDTO article : articles) {
-                indexPipelineService.reindex(article.getId());
+                Long jobId = indexPipelineService.reindex(article.getId());
+                if (jobId != null) {
+                    indexPipelineService.trackFullReindexJob(jobId);
+                    submitted++;
+                }
             }
-            return ResponseEntity.ok(ApiResponse.success("已提交 " + articles.size() + " 个索引任务", null));
+            if (submitted == 0) {
+                indexPipelineService.finishFullReindexIfNoJobs();
+            }
+            return ResponseEntity.ok(ApiResponse.success("已提交 " + submitted + " 个索引任务", null));
         } catch (Exception e) {
             return ResponseEntity.ok(ApiResponse.error(e.getMessage()));
+        } finally {
+            indexPipelineService.finishFullReindexIfNoJobs();
         }
     }
     

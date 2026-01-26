@@ -17,6 +17,7 @@ import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
  * 索引流水线服务
@@ -53,6 +54,44 @@ public class IndexPipelineService {
     
     // 并发控制：跟踪正在执行索引的文章 ID
     private final ConcurrentHashMap<Long, Boolean> indexingArticles = new ConcurrentHashMap<>();
+
+    // 全量重建锁：同一时间只允许一个全量重建任务
+    private final ConcurrentHashMap<Long, Boolean> fullReindexJobs = new ConcurrentHashMap<>();
+    private final AtomicBoolean fullReindexRunning = new AtomicBoolean(false);
+
+    public boolean tryStartFullReindex() {
+        if (!fullReindexRunning.compareAndSet(false, true)) {
+            return false;
+        }
+        fullReindexJobs.clear();
+        return true;
+    }
+
+    public void trackFullReindexJob(Long jobId) {
+        if (jobId != null) {
+            fullReindexJobs.put(jobId, Boolean.TRUE);
+        }
+    }
+
+    public void finishFullReindexIfNoJobs() {
+        if (fullReindexJobs.isEmpty()) {
+            fullReindexRunning.set(false);
+        }
+    }
+
+    public void markFullReindexJobDone(Long jobId) {
+        if (jobId == null) {
+            return;
+        }
+        fullReindexJobs.remove(jobId);
+        if (fullReindexJobs.isEmpty()) {
+            fullReindexRunning.set(false);
+        }
+    }
+
+    public boolean isFullReindexRunning() {
+        return fullReindexRunning.get();
+    }
     
     /**
      * 触发索引（发布时调用）- 会检查内容是否变化
@@ -158,10 +197,11 @@ public class IndexPipelineService {
      */
     @Transactional
     public void executeIndex(Long jobId) {
-        RagIndexJob job = ragIndexJobRepository.findById(jobId)
-            .orElseThrow(() -> new RuntimeException("索引任务不存在: " + jobId));
-        
+        RagIndexJob job = null;
         try {
+            job = ragIndexJobRepository.findById(jobId)
+                .orElseThrow(() -> new RuntimeException("索引任务不存在: " + jobId));
+
             // 标记为运行中
             job.setStatus(IndexJobStatus.RUNNING);
             job.setStartedAt(LocalDateTime.now());
@@ -230,15 +270,21 @@ public class IndexPipelineService {
                 article.getId(), chunks.size(), article.getIndexVersion());
             
         } catch (Exception e) {
-            // 标记为失败
-            job.setStatus(IndexJobStatus.FAILED);
-            job.setErrorMessage(e.getMessage());
-            job.setErrorStack(getStackTrace(e));
-            job.setCompletedAt(LocalDateTime.now());
-            ragIndexJobRepository.save(job);
-            
-            log.error("索引失败: job_id={}, article_id={}", jobId, job.getArticleId(), e);
+            if (job != null) {
+                // 标记为失败
+                job.setStatus(IndexJobStatus.FAILED);
+                job.setErrorMessage(e.getMessage());
+                job.setErrorStack(getStackTrace(e));
+                job.setCompletedAt(LocalDateTime.now());
+                ragIndexJobRepository.save(job);
+
+                log.error("索引失败: job_id={}, article_id={}", jobId, job.getArticleId(), e);
+            } else {
+                log.error("索引失败: job_id={}", jobId, e);
+            }
             throw new RuntimeException("索引失败: " + e.getMessage(), e);
+        } finally {
+            markFullReindexJobDone(jobId);
         }
     }
     
