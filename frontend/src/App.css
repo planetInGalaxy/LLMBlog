@@ -978,11 +978,26 @@ nav a:hover {
 }
 
 /* ========== AI 助手聊天界面 (覆盖旧样式) ========== */
+.main.main-assistant {
+  padding: 0;
+  display: flex;
+  flex: 1;
+  min-height: 0;
+}
+
+.main.main-assistant .container {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+}
+
 .assistant-page {
   width: 100%;
   max-width: 1200px;
   margin: 0 auto;
-  height: calc(100vh - 200px);
+  flex: 1;
+  min-height: 0;
   display: flex;
   flex-direction: column;
 }
@@ -1004,6 +1019,7 @@ nav a:hover {
 
 .chat-messages {
   flex: 1;
+  min-height: 0;
   overflow-y: auto;
   padding: 2rem;
   background: var(--bg-color);
@@ -1335,6 +1351,10 @@ nav a:hover {
   opacity: 0.9;
 }
 
+.footer.footer-assistant {
+  display: none;
+}
+
 /* ========== 加载状态 ========== */
 .loading {
   text-align: center;
@@ -1367,6 +1387,21 @@ nav a:hover {
 }
 
 /* ========== 响应式设计 ========== */
+@media (min-width: 769px) {
+  .chat-input-form textarea {
+    height: 3.4rem;
+    min-height: 3.4rem;
+  }
+
+  .chat-input-form button {
+    height: 3.4rem;
+    padding: 0 1.8rem;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+}
+
 @media (max-width: 768px) {
   .container {
     padding: 0 1rem;
