@@ -34,8 +34,7 @@ public class RagReindexJobService {
     @Autowired
     private RagConfigRepository ragConfigRepository;
 
-    @Autowired
-    private RagConfigService ragConfigService;
+    // (removed) RagConfigService dependency to avoid circular reference
 
     @Autowired
     private ElasticsearchInitializer esInitializer;
@@ -140,8 +139,7 @@ public class RagReindexJobService {
         });
         cfg.setChunkSize(chunkSize);
         ragConfigRepository.save(cfg);
-        // 刷新内存缓存
-        ragConfigService.init();
+        // RagConfigService 会在 getConfig() 时从 DB 刷新缓存，无需在此主动 refresh（避免循环依赖）
     }
 
     public RagReindexJob getLatestJob() {

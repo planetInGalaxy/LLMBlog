@@ -46,7 +46,13 @@ public class RagConfigService {
 
     public RagConfigDTO getConfig() {
         synchronized (lock) {
-            // current 作为缓存即可；更新时会同步写库并刷新
+            // 为了避免异步任务更新 DB 后缓存不一致，这里每次读取都用 DB 刷新一次缓存。
+            try {
+                RagConfig entity = ensureEntity();
+                current = toDTO(entity);
+            } catch (Exception e) {
+                log.warn("读取 RAG 配置失败，将返回缓存值: {}", e.getMessage());
+            }
             return copy(current);
         }
     }
@@ -81,8 +87,7 @@ public class RagConfigService {
         }
     }
 
-    @Autowired
-    private RagReindexJobService ragReindexJobService;
+    // (removed) RagReindexJobService dependency to avoid circular reference
 
     /**
      * 更新 RAG 配置：
@@ -114,18 +119,8 @@ public class RagConfigService {
             if (update.getMinScore() != null) next.setMinScore(update.getMinScore());
             if (update.getReturnCitations() != null) next.setReturnCitations(update.getReturnCitations());
 
-            // 2) 如果 chunkSize 要变：提交异步重建任务（成功后再落库 chunkSize）
-            if (chunkSizeChanged) {
-                int newChunkSize = update.getChunkSize();
-                RagConfigDTO requested = copy(next);
-                requested.setChunkSize(newChunkSize);
-
-                log.info("检测到 chunkSize 变更，将提交异步全量重建索引任务: {} -> {}", before.getChunkSize(), newChunkSize);
-                RagReindexJob job = ragReindexJobService.submitChunkSizeReindex(requested);
-                log.info("已提交重建任务: job_id={}, requested_chunk_size={}", job.getId(), newChunkSize);
-
-                // 注意：此处不更新 entity.chunkSize，等待任务 SUCCESS 后再落库
-            }
+            // 2) chunkSize 是否变化由 Controller 决定是否提交异步重建任务。
+            //    这里不再依赖 RagReindexJobService，避免循环依赖。
 
             // 3) 立即生效参数可直接落库 + 更新缓存
             entity.setTopK(next.getTopK());

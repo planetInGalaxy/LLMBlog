@@ -282,7 +282,40 @@ public class StudioController {
                 request != null ? request.getChunkSize() : null,
                 request != null ? request.getReturnCitations() : null);
 
-            RagConfigDTO updated = ragConfigService.updateConfigAndReindexIfNeeded(request);
+            // 先读取当前配置，判断 chunkSize 是否变化
+            RagConfigDTO current = ragConfigService.getConfig();
+            boolean chunkSizeChanged = request != null
+                && request.getChunkSize() != null
+                && (current == null || !request.getChunkSize().equals(current.getChunkSize()));
+
+            // 更新立即生效参数（不包含 chunkSize）
+            RagConfigDTO safeRequest = request;
+            if (safeRequest != null) {
+                RagConfigDTO tmp = new RagConfigDTO();
+                tmp.setTopK(safeRequest.getTopK());
+                tmp.setMinScore(safeRequest.getMinScore());
+                tmp.setReturnCitations(safeRequest.getReturnCitations());
+                // 注意：chunkSize 不在这里落库，等待异步重建成功后由任务落库
+                safeRequest = tmp;
+            }
+
+            RagConfigDTO updated = ragConfigService.updateConfigAndReindexIfNeeded(safeRequest);
+
+            if (chunkSizeChanged) {
+                RagConfigDTO requested = new RagConfigDTO();
+                requested.setTopK(updated.getTopK());
+                requested.setMinScore(updated.getMinScore());
+                requested.setReturnCitations(updated.getReturnCitations());
+                requested.setChunkSize(request.getChunkSize());
+
+                RagReindexJob job = ragReindexJobService.submitChunkSizeReindex(requested);
+                log.info("chunkSize 变更触发异步重建任务: job_id={}, {} -> {}",
+                    job.getId(), current != null ? current.getChunkSize() : null, request.getChunkSize());
+
+                // 返回给前端：配置已保存（除 chunkSize 外），chunkSize 会在重建成功后生效
+                return ResponseEntity.ok(ApiResponse.success("已提交重建索引任务，chunkSize 将在任务成功后生效", updated));
+            }
+
             log.info("rag-config 更新完成: topK={}, minScore={}, chunkSize={}, returnCitations={}",
                 updated.getTopK(), updated.getMinScore(), updated.getChunkSize(), updated.getReturnCitations());
             return ResponseEntity.ok(ApiResponse.success("保存成功", updated));
