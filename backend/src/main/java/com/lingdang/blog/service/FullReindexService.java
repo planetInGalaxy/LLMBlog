@@ -53,7 +53,7 @@ public class FullReindexService {
             newIndex = esInitializer.createNewConcreteIndex();
 
             // 2) 写入新索引
-            List<Article> articles = articleRepository.findByStatus(ArticleStatus.PUBLISHED);
+            List<Article> articles = articleRepository.findByStatusOrderByPublishedAtDesc(ArticleStatus.PUBLISHED);
             log.info("开始全量重建索引: articles={}, oldIndex={}, newIndex={}", articles.size(), oldIndex, newIndex);
 
             int totalChunks = 0;
