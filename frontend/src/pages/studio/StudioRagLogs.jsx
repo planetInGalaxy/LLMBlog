@@ -60,6 +60,8 @@ function StudioRagLogs() {
                   <th>topK</th>
                   <th>minScore</th>
                   <th>chunkSize</th>
+                  <th>vec</th>
+                  <th>bm25</th>
                   <th>引用</th>
                   <th>耗时(ms)</th>
                   <th>状态</th>
@@ -78,6 +80,8 @@ function StudioRagLogs() {
                     <td>{row.topK ?? '-'}</td>
                     <td>{row.minScore ?? '-'}</td>
                     <td>{row.chunkSize ?? '-'}</td>
+                    <td>{row.vectorCandidates ?? '-'}</td>
+                    <td>{row.bm25Candidates ?? '-'}</td>
                     <td>{row.citationsCount ?? 0}</td>
                     <td>{row.latencyMs ?? '-'}</td>
                     <td style={{ color: row.success ? 'var(--success-color)' : 'var(--danger-color)' }}>

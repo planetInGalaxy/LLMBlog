@@ -70,7 +70,10 @@ function StudioRagLogDetail() {
             <h3>指标</h3>
             <ul>
               <li>hasArticles: {String(!!log.hasArticles)}</li>
+              <li>vectorCandidates: {log.vectorCandidates ?? '-'}</li>
+              <li>bm25Candidates: {log.bm25Candidates ?? '-'}</li>
               <li>filteredCandidates: {log.filteredCandidates ?? '-'}</li>
+              <li>hitArticleIds: {log.hitArticleIds || '-'}</li>
               <li>citationsCount: {log.citationsCount ?? 0}</li>
               <li>retrievalMs: {log.retrievalMs ?? '-'}</li>
               <li>latencyMs: {log.latencyMs ?? '-'}</li>
