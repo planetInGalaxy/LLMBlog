@@ -31,17 +31,24 @@ public class ChunkService {
     // Markdown 标题正则
     private static final Pattern HEADING_PATTERN = Pattern.compile("^(#{1,6})\\s+(.+)$", Pattern.MULTILINE);
     
-    // Chunk 大小配置
-    private static final int MIN_CHUNK_SIZE = 600;
-    private static final int MAX_CHUNK_SIZE = 900;
-    private static final int OVERLAP_SIZE = 100;
-    
+    // 默认 Chunk 大小配置（估算 token 口径：字符数 / 4）
+    private static final int DEFAULT_MIN_TOKENS = 600;
+    private static final int DEFAULT_MAX_TOKENS = 900;
+    private static final int DEFAULT_OVERLAP_TOKENS = 100;
+
     /**
-     * 切分文章为 chunks
+     * 切分文章为 chunks（使用默认配置）
      */
     public List<ArticleChunk> splitArticle(Article article) {
+        return splitArticle(article, ChunkingOptions.of(DEFAULT_MIN_TOKENS, DEFAULT_MAX_TOKENS, DEFAULT_OVERLAP_TOKENS));
+    }
+
+    /**
+     * 切分文章为 chunks（可配置）
+     */
+    public List<ArticleChunk> splitArticle(Article article, ChunkingOptions options) {
         String markdown = article.getContentMarkdown();
-        List<ChunkDraft> drafts = splitByHeadings(markdown);
+        List<ChunkDraft> drafts = splitByHeadings(markdown, options);
         
         List<ArticleChunk> chunks = new ArrayList<>();
         int sequenceNumber = 1;
@@ -72,7 +79,7 @@ public class ChunkService {
     /**
      * 按标题切分
      */
-    private List<ChunkDraft> splitByHeadings(String markdown) {
+    private List<ChunkDraft> splitByHeadings(String markdown, ChunkingOptions options) {
         List<ChunkDraft> chunks = new ArrayList<>();
         
         Matcher matcher = HEADING_PATTERN.matcher(markdown);
@@ -104,9 +111,11 @@ public class ChunkService {
             
             String chunkText = markdown.substring(start, end).trim();
             
+            int maxTokens = options != null ? options.getMaxTokens() : DEFAULT_MAX_TOKENS;
+
             // 如果 chunk 太大，进一步切分
-            if (estimateTokenCount(chunkText) > MAX_CHUNK_SIZE) {
-                chunks.addAll(splitLargeChunk(chunkText, heading.getLevel(), heading.getText()));
+            if (estimateTokenCount(chunkText) > maxTokens) {
+                chunks.addAll(splitLargeChunk(chunkText, heading.getLevel(), heading.getText(), options));
             } else {
                 ChunkDraft chunk = new ChunkDraft();
                 chunk.setHeadingLevel(heading.getLevel());
@@ -123,34 +132,49 @@ public class ChunkService {
     /**
      * 切分过大的 chunk
      */
-    private List<ChunkDraft> splitLargeChunk(String text, int level, String headingText) {
+    private List<ChunkDraft> splitLargeChunk(String text, int level, String headingText, ChunkingOptions options) {
         List<ChunkDraft> chunks = new ArrayList<>();
         String[] paragraphs = text.split("\n\n");
-        
+
+        int minTokens = options != null ? options.getMinTokens() : DEFAULT_MIN_TOKENS;
+        int maxTokens = options != null ? options.getMaxTokens() : DEFAULT_MAX_TOKENS;
+        int overlapTokens = options != null ? options.getOverlapTokens() : DEFAULT_OVERLAP_TOKENS;
+
         StringBuilder currentChunk = new StringBuilder();
         int tokenCount = 0;
-        
+
+        String lastOverlapText = "";
+
         for (String para : paragraphs) {
             int paraTokens = estimateTokenCount(para);
-            
-            if (tokenCount + paraTokens > MAX_CHUNK_SIZE && tokenCount > MIN_CHUNK_SIZE) {
+
+            if (tokenCount + paraTokens > maxTokens && tokenCount > minTokens) {
                 // 保存当前 chunk
+                String chunkBody = currentChunk.toString().trim();
                 ChunkDraft chunk = new ChunkDraft();
                 chunk.setHeadingLevel(level);
                 chunk.setHeadingText(headingText);
                 chunk.setAnchor(markdownService.generateAnchor(headingText));
-                chunk.setChunkText(currentChunk.toString().trim());
+                chunk.setChunkText(chunkBody);
                 chunks.add(chunk);
-                
+
+                // 计算 overlap（取末尾若干字符近似达到 overlapTokens）
+                lastOverlapText = takeTailByEstimatedTokens(chunkBody, overlapTokens);
+
                 // 开始新 chunk（带 overlap）
                 currentChunk = new StringBuilder();
                 tokenCount = 0;
+
+                if (!lastOverlapText.isBlank()) {
+                    currentChunk.append(lastOverlapText).append("\n\n");
+                    tokenCount += estimateTokenCount(lastOverlapText);
+                }
             }
-            
+
             currentChunk.append(para).append("\n\n");
             tokenCount += paraTokens;
         }
-        
+
         // 保存最后一个 chunk
         if (currentChunk.length() > 0) {
             ChunkDraft chunk = new ChunkDraft();
@@ -160,8 +184,19 @@ public class ChunkService {
             chunk.setChunkText(currentChunk.toString().trim());
             chunks.add(chunk);
         }
-        
+
         return chunks;
+    }
+
+    private String takeTailByEstimatedTokens(String text, int targetTokens) {
+        if (text == null || text.isEmpty() || targetTokens <= 0) {
+            return "";
+        }
+        // estimateTokenCount = length/4，因此大致取 targetTokens*4 个字符
+        int targetChars = targetTokens * 4;
+        if (targetChars <= 0) return "";
+        if (text.length() <= targetChars) return text;
+        return text.substring(text.length() - targetChars);
     }
     
     /**

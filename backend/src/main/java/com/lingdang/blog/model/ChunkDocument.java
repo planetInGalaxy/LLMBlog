@@ -16,7 +16,7 @@ import org.springframework.data.elasticsearch.annotations.FieldType;
  * @JsonIgnoreProperties(ignoreUnknown = true) 用于忽略 ES 自动添加的 _class 字段
  */
 @Data
-@Document(indexName = "lingdang_chunks_v1")
+@Document(indexName = "lingdang_chunks")
 @JsonIgnoreProperties(ignoreUnknown = true)
 public class ChunkDocument {
     

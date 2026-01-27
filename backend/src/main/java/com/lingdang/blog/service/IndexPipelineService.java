@@ -1,6 +1,7 @@
 package com.lingdang.blog.service;
 
 import co.elastic.clients.elasticsearch.ElasticsearchClient;
+import com.lingdang.blog.config.ElasticsearchInitializer;
 import com.lingdang.blog.model.*;
 import com.lingdang.blog.repository.ArticleChunkRepository;
 import com.lingdang.blog.repository.ArticleRepository;
@@ -43,6 +44,9 @@ public class IndexPipelineService {
     
     @Autowired
     private ChunkService chunkService;
+
+    @Autowired
+    private RagConfigService ragConfigService;
     
     @Autowired
     private LlmService llmService;
@@ -50,7 +54,7 @@ public class IndexPipelineService {
     @Autowired
     private ElasticsearchClient esClient;
     
-    private static final String INDEX_NAME = "lingdang_chunks_v1";
+    private static final String INDEX_NAME = ElasticsearchInitializer.INDEX_ALIAS;
     
     // 并发控制：跟踪正在执行索引的文章 ID
     private final ConcurrentHashMap<Long, Boolean> indexingArticles = new ConcurrentHashMap<>();
@@ -213,8 +217,8 @@ public class IndexPipelineService {
             
             log.info("开始索引: article_id={}, version={}", article.getId(), article.getIndexVersion());
             
-            // 2. 切分 chunk
-            List<ArticleChunk> chunks = chunkService.splitArticle(article);
+            // 2. 切分 chunk（使用当前 rag-config 的 chunkSize 等参数）
+            List<ArticleChunk> chunks = chunkService.splitArticle(article, ragConfigService.getChunkingOptions());
             job.setChunksGenerated(chunks.size());
             ragIndexJobRepository.save(job);
             

@@ -178,6 +178,13 @@
   color: var(--text-light);
 }
 
+.form-group label .form-hint {
+  margin-left: 0.5rem;
+  margin-top: 0;
+  font-size: 0.8rem;
+  color: var(--warning-color);
+}
+
 .form-toggle label {
   display: flex;
   align-items: center;

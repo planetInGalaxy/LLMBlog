@@ -218,7 +218,7 @@ public class StudioController {
     @PutMapping("/rag-config")
     public ResponseEntity<ApiResponse<RagConfigDTO>> updateRagConfig(@RequestBody RagConfigDTO request) {
         try {
-            RagConfigDTO updated = ragConfigService.updateConfig(request);
+            RagConfigDTO updated = ragConfigService.updateConfigAndReindexIfNeeded(request);
             return ResponseEntity.ok(ApiResponse.success("保存成功", updated));
         } catch (IllegalArgumentException e) {
             return ResponseEntity.ok(ApiResponse.error(e.getMessage()));

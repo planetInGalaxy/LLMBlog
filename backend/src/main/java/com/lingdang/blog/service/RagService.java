@@ -4,6 +4,7 @@ import co.elastic.clients.elasticsearch.ElasticsearchClient;
 import co.elastic.clients.elasticsearch.core.SearchResponse;
 import co.elastic.clients.elasticsearch.core.search.Hit;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.lingdang.blog.config.ElasticsearchInitializer;
 import com.lingdang.blog.dto.assistant.AssistantRequest;
 import com.lingdang.blog.dto.assistant.AssistantResponse;
 import com.lingdang.blog.dto.assistant.RagConfigDTO;
@@ -246,25 +247,25 @@ public class RagService {
         
         try {
             // 先检查索引是否存在
-            boolean indexExists = esClient.indices().exists(e -> e.index("lingdang_chunks_v1")).value();
-            
+            boolean indexExists = esClient.indices().exists(e -> e.index(ElasticsearchInitializer.INDEX_ALIAS)).value();
+
             if (!indexExists) {
-                log.warn("索引 lingdang_chunks_v1 不存在，跳过向量检索");
+                log.warn("索引 {} 不存在，跳过向量检索", ElasticsearchInitializer.INDEX_ALIAS);
                 return results;
             }
-            
+
             // 检查索引是否有数据
-            long count = esClient.count(c -> c.index("lingdang_chunks_v1")).count();
+            long count = esClient.count(c -> c.index(ElasticsearchInitializer.INDEX_ALIAS)).count();
             if (count == 0) {
-                log.warn("索引 lingdang_chunks_v1 为空，跳过向量检索");
+                log.warn("索引 {} 为空，跳过向量检索", ElasticsearchInitializer.INDEX_ALIAS);
                 return results;
             }
-            
-            log.info("开始向量检索: index=lingdang_chunks_v1, topK={}, embedding_dim={}, doc_count={}", 
-                topK, embedding.length, count);
-            
+
+            log.info("开始向量检索: index={}, topK={}, embedding_dim={}, doc_count={}",
+                ElasticsearchInitializer.INDEX_ALIAS, topK, embedding.length, count);
+
             SearchResponse<ChunkDocument> response = esClient.search(s -> s
-                .index("lingdang_chunks_v1")
+                .index(ElasticsearchInitializer.INDEX_ALIAS)
                 .knn(k -> k
                     .field("embedding")
                     .queryVector(floatArrayToList(embedding))
@@ -314,25 +315,25 @@ public class RagService {
         
         try {
             // 先检查索引是否存在
-            boolean indexExists = esClient.indices().exists(e -> e.index("lingdang_chunks_v1")).value();
-            
+            boolean indexExists = esClient.indices().exists(e -> e.index(ElasticsearchInitializer.INDEX_ALIAS)).value();
+
             if (!indexExists) {
-                log.warn("索引 lingdang_chunks_v1 不存在，跳过 BM25 检索");
+                log.warn("索引 {} 不存在，跳过 BM25 检索", ElasticsearchInitializer.INDEX_ALIAS);
                 return results;
             }
-            
+
             // 检查索引是否有数据
-            long count = esClient.count(c -> c.index("lingdang_chunks_v1")).count();
+            long count = esClient.count(c -> c.index(ElasticsearchInitializer.INDEX_ALIAS)).count();
             if (count == 0) {
-                log.warn("索引 lingdang_chunks_v1 为空，跳过 BM25 检索");
+                log.warn("索引 {} 为空，跳过 BM25 检索", ElasticsearchInitializer.INDEX_ALIAS);
                 return results;
             }
-            
-            log.info("开始 BM25 检索: index=lingdang_chunks_v1, query='{}', topK={}, doc_count={}", 
-                query, topK, count);
-            
+
+            log.info("开始 BM25 检索: index={}, query='{}', topK={}, doc_count={}",
+                ElasticsearchInitializer.INDEX_ALIAS, query, topK, count);
+
             SearchResponse<ChunkDocument> response = esClient.search(s -> s
-                .index("lingdang_chunks_v1")
+                .index(ElasticsearchInitializer.INDEX_ALIAS)
                 .query(q -> q
                     .multiMatch(m -> m
                         .query(query)

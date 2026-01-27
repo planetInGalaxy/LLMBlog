@@ -70,11 +70,67 @@ public class RagConfigService {
                 entity.setReturnCitations(update.getReturnCitations());
             }
 
-            if (update.getChunkSize() != null && !update.getChunkSize().equals(entity.getChunkSize())) {
-                log.info("chunkSize 变更仅展示用，需重建索引后生效: {} -> {}",
-                    entity.getChunkSize(), update.getChunkSize());
+            if (update.getChunkSize() != null) {
                 entity.setChunkSize(update.getChunkSize());
             }
+
+            RagConfig saved = ragConfigRepository.save(entity);
+            current = toDTO(saved);
+            return copy(current);
+        }
+    }
+
+    @Autowired
+    private FullReindexService fullReindexService;
+
+    /**
+     * 更新 RAG 配置：
+     * - 立即生效的参数：topK/minScore/returnCitations -> 直接落库
+     * - 需要重建索引的参数：chunkSize -> 自动触发全量重建索引
+     *
+     * 要求：重建成功才真正落库；失败则保持旧配置 + 旧索引，并返回错误。
+     */
+    public RagConfigDTO updateConfigAndReindexIfNeeded(RagConfigDTO update) {
+        if (update == null) {
+            throw new IllegalArgumentException("配置不能为空");
+        }
+
+        synchronized (lock) {
+            validate(update);
+
+            RagConfig entity = ensureEntity();
+            RagConfigDTO before = toDTO(entity);
+
+            boolean chunkSizeChanged = update.getChunkSize() != null
+                && !update.getChunkSize().equals(before.getChunkSize());
+
+            // 1) 对立即生效参数，先更新内存/DB
+            RagConfigDTO next = copy(before);
+            if (update.getTopK() != null) next.setTopK(update.getTopK());
+            if (update.getMinScore() != null) next.setMinScore(update.getMinScore());
+            if (update.getReturnCitations() != null) next.setReturnCitations(update.getReturnCitations());
+
+            // 2) 如果 chunkSize 要变：先用“新 chunk 参数”尝试全量重建索引。
+            if (chunkSizeChanged) {
+                int newChunkSize = update.getChunkSize();
+                ChunkingOptions options = ChunkingOptions.of(
+                    Math.max(200, (int) Math.round(newChunkSize * 0.67)),
+                    newChunkSize,
+                    Math.min(200, Math.max(0, (int) Math.round(newChunkSize * 0.10)))
+                );
+
+                log.info("检测到 chunkSize 变更，将自动触发全量重建索引: {} -> {}", before.getChunkSize(), newChunkSize);
+                // 这里是关键：先重建成功，再落库
+                fullReindexService.rebuildAllPublishedToNewIndex(options);
+
+                next.setChunkSize(newChunkSize);
+            }
+
+            // 3) 落库 + 更新缓存
+            entity.setTopK(next.getTopK());
+            entity.setMinScore(next.getMinScore());
+            entity.setReturnCitations(next.getReturnCitations());
+            entity.setChunkSize(next.getChunkSize());
 
             RagConfig saved = ragConfigRepository.save(entity);
             current = toDTO(saved);
@@ -94,6 +150,14 @@ public class RagConfigService {
             double minScore = update.getMinScore();
             if (minScore < 0 || minScore > 1) {
                 throw new IllegalArgumentException("minScore 需在 0 ~ 1 之间");
+            }
+        }
+
+        if (update.getChunkSize() != null) {
+            int chunkSize = update.getChunkSize();
+            // 使用估算 token 口径，给一个保守可用范围
+            if (chunkSize < 200 || chunkSize > 2000) {
+                throw new IllegalArgumentException("chunkSize 建议在 200 ~ 2000 之间");
             }
         }
     }
@@ -121,6 +185,21 @@ public class RagConfigService {
         dto.setChunkSize(entity.getChunkSize() != null ? entity.getChunkSize() : DEFAULT_CHUNK_SIZE);
         dto.setReturnCitations(Boolean.TRUE.equals(entity.getReturnCitations()));
         return dto;
+    }
+
+    /**
+     * 将 rag-config 的 chunkSize 转换为实际切分参数。
+     * chunkSize 的口径与 ChunkService 内部 estimateTokenCount 保持一致（字符数/4）。
+     */
+    public ChunkingOptions getChunkingOptions() {
+        RagConfigDTO cfg = getConfig();
+        int max = cfg.getChunkSize() != null ? cfg.getChunkSize() : DEFAULT_CHUNK_SIZE;
+
+        // 经验值：min 约为 max 的 2/3，overlap 约为 max 的 10%
+        int min = Math.max(200, (int) Math.round(max * 0.67));
+        int overlap = Math.min(200, Math.max(0, (int) Math.round(max * 0.10)));
+
+        return ChunkingOptions.of(min, max, overlap);
     }
 
     private RagConfigDTO copy(RagConfigDTO source) {

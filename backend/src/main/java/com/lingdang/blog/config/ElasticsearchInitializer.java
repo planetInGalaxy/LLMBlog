@@ -24,7 +24,17 @@ public class ElasticsearchInitializer {
     @Autowired
     private ElasticsearchClient esClient;
     
-    private static final String INDEX_NAME = "lingdang_chunks_v1";
+    /**
+     * 读写别名（线上永远通过 alias 访问，便于蓝绿重建索引）
+     */
+    public static final String INDEX_ALIAS = "lingdang_chunks";
+
+    /**
+     * 旧版本固定索引名（历史兼容）
+     */
+    public static final String LEGACY_INDEX = "lingdang_chunks_v1";
+
+    private static final String INDEX_PREFIX = "lingdang_chunks_v1_";
     
     /**
      * 应用就绪后初始化索引
@@ -33,8 +43,8 @@ public class ElasticsearchInitializer {
     public void initializeIndex() {
         try {
             log.info("=== Elasticsearch 索引初始化开始 ===");
-            log.info("目标索引: {}", INDEX_NAME);
-            
+            log.info("目标别名: {}", INDEX_ALIAS);
+
             // 检查 ES 连接
             try {
                 boolean pingResult = esClient.ping().value();
@@ -48,62 +58,33 @@ public class ElasticsearchInitializer {
                 return;
             }
             
-            // 检查索引是否存在
-            ExistsRequest existsRequest = ExistsRequest.of(e -> e.index(INDEX_NAME));
-            boolean exists = esClient.indices().exists(existsRequest).value();
-            
-            if (exists) {
-                log.info("✅ 索引已存在: {}", INDEX_NAME);
-                
-                // 检查 embedding 维度是否匹配（自动修复维度不匹配问题）
-                try {
-                    var mappingResponse = esClient.indices().getMapping(m -> m.index(INDEX_NAME));
-                    var mapping = mappingResponse.get(INDEX_NAME);
-                    if (mapping != null && mapping.mappings() != null && mapping.mappings().properties() != null) {
-                        var embeddingProp = mapping.mappings().properties().get("embedding");
-                        if (embeddingProp != null && embeddingProp._kind() != null) {
-                            // 获取当前索引中 embedding 的维度
-                            var denseVector = embeddingProp.denseVector();
-                            if (denseVector != null) {
-                                Integer dimsValue = denseVector.dims();
-                                if (dimsValue != null) {
-                                    int currentDims = dimsValue;
-                                    int expectedDims = 768; // 与 ChunkDocument 中定义的维度一致
-                                    
-                                    if (currentDims != expectedDims) {
-                                        log.warn("⚠️  检测到 embedding 维度不匹配！");
-                                        log.warn("    当前索引维度: {}", currentDims);
-                                        log.warn("    期望的维度: {}", expectedDims);
-                                        log.warn("    自动删除旧索引并重建...");
-                                        
-                                        // 删除旧索引
-                                        esClient.indices().delete(d -> d.index(INDEX_NAME));
-                                        log.info("✅ 已删除旧索引");
-                                        
-                                        // 跳转到创建索引逻辑
-                                        exists = false;
-                                    } else {
-                                        log.info("✅ Embedding 维度匹配: {} 维", currentDims);
-                                    }
-                                }
-                            }
-                        }
+            // 1) 确保 alias 存在（兼容旧索引：legacy -> alias）
+            ensureAlias();
+
+            // 2) 如果 alias 指向的索引 embedding 维度不匹配，则重建一个新索引并切换 alias
+            try {
+                String currentIndex = resolveCurrentIndex();
+                if (currentIndex != null) {
+                    Integer dims = readEmbeddingDims(currentIndex);
+                    int expectedDims = 768; // 与 ChunkDocument 中定义一致
+                    if (dims != null && dims != expectedDims) {
+                        log.warn("⚠️  检测到 embedding 维度不匹配: currentDims={}, expectedDims={}，将自动重建索引并切换 alias", dims, expectedDims);
+                        String newIndex = createNewConcreteIndex();
+                        switchAliasTo(newIndex);
                     }
-                } catch (Exception e) {
-                    log.warn("检查 embedding 维度失败（将继续使用现有索引）: {}", e.getMessage());
                 }
-                
-                if (exists) {
-                    // 获取索引文档数量
-                    long count = esClient.count(c -> c.index(INDEX_NAME)).count();
-                    log.info("📊 索引文档数量: {}", count);
-                    return;
-                }
+            } catch (Exception e) {
+                log.warn("检查/修复 embedding 维度失败（将继续使用现有索引）: {}", e.getMessage());
             }
-            
-            log.info("索引不存在，Spring Data Elasticsearch 将自动创建");
-            log.info("提示：索引会在首次使用 ChunkDocumentRepository 时自动创建");
-            log.info("提示：请在 Studio 执行「全量重建索引」来触发索引创建和数据导入");
+
+            // 3) 打印当前文档数
+            try {
+                long count = esClient.count(c -> c.index(INDEX_ALIAS)).count();
+                log.info("📊 当前索引(alias={})文档数量: {}", INDEX_ALIAS, count);
+            } catch (Exception e) {
+                log.warn("获取索引文档数量失败: {}", e.getMessage());
+            }
+
             log.info("=== Elasticsearch 索引初始化完成 ===");
             
         } catch (Exception e) {
@@ -118,58 +99,166 @@ public class ElasticsearchInitializer {
      */
     public IndexHealth checkIndexHealth() {
         IndexHealth health = new IndexHealth();
-        health.setIndexName(INDEX_NAME);
-        
+        health.setIndexName(INDEX_ALIAS);
+
         try {
             // 检查 ES 连接
             boolean pingResult = esClient.ping().value();
             health.setEsConnected(pingResult);
-            
+
             if (!pingResult) {
                 health.setHealthy(false);
                 health.setMessage("Elasticsearch 连接失败");
                 return health;
             }
-            
-            // 检查索引是否存在
-            boolean exists = esClient.indices().exists(e -> e.index(INDEX_NAME)).value();
+
+            // alias 是否存在（以及是否有指向的实际索引）
+            String currentIndex = resolveCurrentIndex();
+            boolean exists = currentIndex != null;
             health.setIndexExists(exists);
-            
+
             if (!exists) {
                 health.setHealthy(false);
-                health.setMessage("索引不存在，请执行全量重建索引");
+                health.setMessage("索引别名不存在或未绑定索引，请执行全量重建索引");
                 return health;
             }
-            
+
             // 获取 chunks 总数
-            long chunkCount = esClient.count(c -> c.index(INDEX_NAME)).count();
+            long chunkCount = esClient.count(c -> c.index(INDEX_ALIAS)).count();
             health.setDocumentCount(chunkCount);
-            
+
             // 获取去重后的文章数量（使用 cardinality aggregation）
             var aggResponse = esClient.search(s -> s
-                .index(INDEX_NAME)
-                .size(0) // 不需要返回文档
+                .index(INDEX_ALIAS)
+                .size(0)
                 .aggregations("unique_articles", a -> a
                     .cardinality(c -> c.field("articleId"))
                 ), Object.class);
-            
+
             long articleCount = aggResponse.aggregations()
                 .get("unique_articles")
                 .cardinality()
                 .value();
-            
+
             health.setArticleCount(articleCount);
             health.setHealthy(true);
             health.setMessage("索引健康");
-            
+
         } catch (Exception e) {
             health.setHealthy(false);
             health.setMessage("检查失败: " + e.getMessage());
         }
-        
+
         return health;
     }
     
+    private void ensureAlias() throws Exception {
+        // 如果 alias 已经存在（有指向），直接返回
+        String current = resolveCurrentIndex();
+        if (current != null) {
+            log.info("✅ 索引 alias 已存在: {} -> {}", INDEX_ALIAS, current);
+            return;
+        }
+
+        // 兼容：如果 legacy 索引存在，则创建 alias 指向它
+        boolean legacyExists = esClient.indices().exists(e -> e.index(LEGACY_INDEX)).value();
+        if (legacyExists) {
+            log.info("检测到 legacy 索引存在，将创建 alias: {} -> {}", INDEX_ALIAS, LEGACY_INDEX);
+            esClient.indices().putAlias(a -> a.index(LEGACY_INDEX).name(INDEX_ALIAS));
+            return;
+        }
+
+        // 否则创建一个全新索引并绑定 alias
+        String newIndex = createNewConcreteIndex();
+        switchAliasTo(newIndex);
+    }
+
+    /**
+     * 返回 alias 当前指向的实际索引名；如果不存在返回 null。
+     */
+    public String resolveCurrentIndex() {
+        try {
+            var resp = esClient.indices().getAlias(a -> a.name(INDEX_ALIAS));
+            if (resp == null || resp.result() == null || resp.result().isEmpty()) {
+                return null;
+            }
+            // result 的 key 是 indexName
+            return resp.result().keySet().iterator().next();
+        } catch (Exception e) {
+            return null;
+        }
+    }
+
+    /**
+     * 创建一个新的实际索引（不绑定 alias），用于蓝绿重建。
+     */
+    public String createNewConcreteIndex() throws Exception {
+        String indexName = INDEX_PREFIX + System.currentTimeMillis();
+
+        // settings
+        String settingsJson = null;
+        try (InputStream is = new ClassPathResource("elasticsearch/chunk-settings.json").getInputStream()) {
+            settingsJson = new String(is.readAllBytes(), StandardCharsets.UTF_8);
+        }
+
+        CreateIndexRequest req = CreateIndexRequest.of(c -> c
+            .index(indexName)
+            .settings(s -> s.withJson(new java.io.StringReader(settingsJson)))
+            .mappings(m -> m
+                .properties("chunkId", p -> p.keyword(k -> k))
+                .properties("articleId", p -> p.long_(l -> l))
+                .properties("slug", p -> p.keyword(k -> k))
+                .properties("title", p -> p.text(t -> t.analyzer("ik_max_word")))
+                .properties("tags", p -> p.text(t -> t.analyzer("ik_max_word")))
+                .properties("status", p -> p.keyword(k -> k))
+                .properties("indexVersion", p -> p.integer(i -> i))
+                .properties("headingLevel", p -> p.integer(i -> i))
+                .properties("headingText", p -> p.text(t -> t.analyzer("ik_max_word")))
+                .properties("anchor", p -> p.keyword(k -> k))
+                .properties("chunkText", p -> p.text(t -> t.analyzer("ik_max_word")))
+                .properties("embedding", p -> p.denseVector(v -> v.dims(768)))
+                .properties("tokenCount", p -> p.integer(i -> i))
+                .properties("sequenceNumber", p -> p.integer(i -> i))
+            )
+        );
+
+        esClient.indices().create(req);
+        log.info("✅ 已创建新索引: {}", indexName);
+        return indexName;
+    }
+
+    /**
+     * 原子切换 alias 指向指定索引。
+     */
+    public void switchAliasTo(String newIndex) throws Exception {
+        String oldIndex = resolveCurrentIndex();
+
+        esClient.indices().updateAliases(a -> {
+            if (oldIndex != null) {
+                a.actions(act -> act.remove(r -> r.index(oldIndex).alias(INDEX_ALIAS)));
+            }
+            a.actions(act -> act.add(ad -> ad.index(newIndex).alias(INDEX_ALIAS)));
+            return a;
+        });
+
+        log.info("✅ alias 已切换: {} -> {} (old={})", INDEX_ALIAS, newIndex, oldIndex);
+    }
+
+    private Integer readEmbeddingDims(String indexName) {
+        try {
+            var mappingResponse = esClient.indices().getMapping(m -> m.index(indexName));
+            var mapping = mappingResponse.get(indexName);
+            if (mapping != null && mapping.mappings() != null && mapping.mappings().properties() != null) {
+                var embeddingProp = mapping.mappings().properties().get("embedding");
+                if (embeddingProp != null && embeddingProp.denseVector() != null) {
+                    return embeddingProp.denseVector().dims();
+                }
+            }
+        } catch (Exception ignored) {
+        }
+        return null;
+    }
+
     /**
      * 索引健康状态
      */

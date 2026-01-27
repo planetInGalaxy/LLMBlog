@@ -138,9 +138,20 @@ function StudioRagSettings() {
           />
         </div>
         <div className="form-group">
-          <label>chunkSize</label>
-          <input type="number" value={form.chunkSize} disabled />
-          <div className="form-hint">需重建索引后生效</div>
+          <label>
+            chunkSize
+            <span className="form-hint">（修改后将自动触发全量重建索引，成功后才会生效）</span>
+          </label>
+          <input
+            type="number"
+            min="200"
+            max="2000"
+            step="10"
+            value={form.chunkSize}
+            onChange={(e) => setForm(prev => ({ ...prev, chunkSize: e.target.value }))}
+            disabled={saving}
+          />
+          <div className="form-hint">本次保存会自动全量重建索引，可能需要几十秒～数分钟，请耐心等待。</div>
         </div>
         <div className="form-group form-toggle">
           <label>
