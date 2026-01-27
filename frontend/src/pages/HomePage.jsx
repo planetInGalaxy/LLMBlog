@@ -51,8 +51,8 @@ function HomePage() {
             <span className="keyword-tag">大模型</span>
             <span className="keyword-tag">AI技术</span>
             <span className="keyword-tag">人工智能</span>
-            <span className="keyword-tag">机器学习</span>
-            <span className="keyword-tag">深度学习</span>
+            <span className="keyword-tag">RAG</span>
+            <span className="keyword-tag">Agent</span>
             <span className="keyword-tag">自然语言处理</span>
             <span className="keyword-tag">生成式AI</span>
             <span className="keyword-tag">技术博客</span>
