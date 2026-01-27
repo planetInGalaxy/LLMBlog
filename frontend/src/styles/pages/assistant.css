@@ -595,16 +595,19 @@
 }
 
 @media (min-width: 769px) {
-  /* 桌面端：输入区固定在底部，不随内容流式更新产生布局抖动 */
+  /* 桌面端：输入区固定在视口底部，避免流式渲染时触发布局抖动 */
   .chat-input-form {
-    position: sticky;
-    bottom: 0;
-    z-index: 5;
+    position: fixed;
+    left: 50%;
+    bottom: 1rem;
+    transform: translateX(-50%);
+    width: min(1200px, calc(100% - 2rem));
+    z-index: 50;
   }
 
+  /* 给消息区留出空间，避免最后几行被输入框遮住 */
   .chat-messages {
-    /* 给 sticky 输入条留出视觉缓冲，避免滚动时贴得太紧 */
-    margin-bottom: 0.75rem;
+    margin-bottom: 6.25rem;
   }
 
   .chat-input-form textarea {

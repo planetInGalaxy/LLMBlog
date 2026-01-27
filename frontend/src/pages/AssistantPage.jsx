@@ -49,6 +49,8 @@ function AssistantPage() {
   const [loading, setLoading] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
   const messagesEndRef = useRef(null);
+  const messagesContainerRef = useRef(null);
+  const scrollRafRef = useRef(null);
   const abortControllerRef = useRef(null);
   const timeoutRef = useRef(null);
   const activeAssistantIndexRef = useRef(null);
@@ -74,7 +76,8 @@ function AssistantPage() {
 
       // 2) 修复 “#### 三、xxx- 列表项” 这种标题和列表粘连：标题后强制空行
       //    例：#### 三、xxx- a  => #### 三、xxx\n\n- a
-      t = t.replace(/^(#{2,6}[^\n]*?)(\s*)(- |\d+\. )/gm, '$1\n\n$3');
+      //    注意：不要处理有序列表（\d+. ），否则可能把分段的有序列表拆成多个独立列表，导致编号看起来总从 1 开始。
+      t = t.replace(/^(#{2,6}[^\n]*?)(\s*)(- )/gm, '$1\n\n$3');
 
       // 3) 修复 “句子- 列表项” 同行粘连：仅在同一行内插入换行，避免吃掉下一行缩进
       //    例：...。[1]。- 要点  => ...。[1]。\n- 要点
@@ -87,16 +90,39 @@ function AssistantPage() {
     return parts.join('```');
   };
 
+  const isNearBottom = () => {
+    const el = messagesContainerRef.current;
+    if (!el) return true;
+    const threshold = 120;
+    const distance = el.scrollHeight - el.scrollTop - el.clientHeight;
+    return distance < threshold;
+  };
+
   const scrollToBottom = (behavior = 'auto') => {
-    messagesEndRef.current?.scrollIntoView({ behavior });
+    if (!messagesEndRef.current) return;
+
+    if (scrollRafRef.current) {
+      cancelAnimationFrame(scrollRafRef.current);
+    }
+
+    scrollRafRef.current = requestAnimationFrame(() => {
+      try {
+        messagesEndRef.current?.scrollIntoView({ behavior });
+      } finally {
+        scrollRafRef.current = null;
+      }
+    });
   };
 
   useEffect(() => {
+    // 只有用户在底部附近时才自动滚动；否则用户在上面看历史消息会被“拉回去”。
+    if (!isNearBottom()) return;
+
     // 流式输出时更新频繁，smooth 会导致桌面端输入框/按钮出现“抖动”观感。
     // 这里在流式期间使用 auto，结束后再用 smooth。
     const last = messages[messages.length - 1];
-    const isStreaming = !!last?.streaming;
-    scrollToBottom(isStreaming ? 'auto' : 'smooth');
+    const streaming = !!last?.streaming;
+    scrollToBottom(streaming ? 'auto' : 'smooth');
   }, [messages]);
 
   useEffect(() => {
@@ -351,7 +377,7 @@ function AssistantPage() {
         <p>基于您的文章知识库，智能回答问题</p>
       </div>
 
-      <div className="chat-messages">
+      <div className="chat-messages" ref={messagesContainerRef}>
         {messages.length === 0 && (
           <div className="welcome-message">
             <h2>👋 欢迎使用 AI 学习助手</h2>
