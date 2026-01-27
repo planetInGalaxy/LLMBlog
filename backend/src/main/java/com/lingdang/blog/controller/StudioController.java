@@ -8,6 +8,7 @@ import com.lingdang.blog.service.ArticleService;
 import com.lingdang.blog.service.IndexPipelineService;
 import com.lingdang.blog.service.RagConfigService;
 import jakarta.validation.Valid;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -17,6 +18,7 @@ import java.util.List;
 /**
  * Studio 管理 Controller
  */
+@Slf4j
 @RestController
 @RequestMapping("/api/studio")
 @CrossOrigin(origins = "*")
@@ -218,11 +220,21 @@ public class StudioController {
     @PutMapping("/rag-config")
     public ResponseEntity<ApiResponse<RagConfigDTO>> updateRagConfig(@RequestBody RagConfigDTO request) {
         try {
+            log.info("收到 rag-config 更新请求: topK={}, minScore={}, chunkSize={}, returnCitations={}",
+                request != null ? request.getTopK() : null,
+                request != null ? request.getMinScore() : null,
+                request != null ? request.getChunkSize() : null,
+                request != null ? request.getReturnCitations() : null);
+
             RagConfigDTO updated = ragConfigService.updateConfigAndReindexIfNeeded(request);
+            log.info("rag-config 更新完成: topK={}, minScore={}, chunkSize={}, returnCitations={}",
+                updated.getTopK(), updated.getMinScore(), updated.getChunkSize(), updated.getReturnCitations());
             return ResponseEntity.ok(ApiResponse.success("保存成功", updated));
         } catch (IllegalArgumentException e) {
+            log.warn("rag-config 更新参数错误: {}", e.getMessage());
             return ResponseEntity.ok(ApiResponse.error(e.getMessage()));
         } catch (Exception e) {
+            log.error("rag-config 更新失败", e);
             return ResponseEntity.ok(ApiResponse.error("保存失败: " + e.getMessage()));
         }
     }

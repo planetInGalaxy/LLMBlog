@@ -104,6 +104,9 @@ public class RagConfigService {
             boolean chunkSizeChanged = update.getChunkSize() != null
                 && !update.getChunkSize().equals(before.getChunkSize());
 
+            log.info("处理 rag-config 更新: before(chunkSize={}), requested(chunkSize={}), chunkSizeChanged={}",
+                before.getChunkSize(), update.getChunkSize(), chunkSizeChanged);
+
             // 1) 对立即生效参数，先更新内存/DB
             RagConfigDTO next = copy(before);
             if (update.getTopK() != null) next.setTopK(update.getTopK());
