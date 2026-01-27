@@ -151,8 +151,8 @@ public class RagConfigService {
         if (update.getChunkSize() != null) {
             int chunkSize = update.getChunkSize();
             // 使用估算 token 口径，给一个保守可用范围
-            if (chunkSize < 200 || chunkSize > 2000) {
-                throw new IllegalArgumentException("chunkSize 建议在 200 ~ 2000 之间");
+            if (chunkSize < 50 || chunkSize > 2000) {
+                throw new IllegalArgumentException("chunkSize 建议在 50 ~ 2000 之间");
             }
         }
     }

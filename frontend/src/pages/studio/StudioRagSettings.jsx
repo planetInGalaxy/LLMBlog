@@ -74,8 +74,8 @@ function StudioRagSettings() {
       alert('minScore 需在 0 ~ 1 之间');
       return;
     }
-    if (chunkSize < 200 || chunkSize > 2000) {
-      alert('chunkSize 建议在 200 ~ 2000 之间');
+    if (chunkSize < 50 || chunkSize > 2000) {
+      alert('chunkSize 建议在 50 ~ 2000 之间');
       return;
     }
 
@@ -174,7 +174,7 @@ function StudioRagSettings() {
           </label>
           <input
             type="number"
-            min="200"
+            min="50"
             max="2000"
             step="10"
             value={form.chunkSize}
