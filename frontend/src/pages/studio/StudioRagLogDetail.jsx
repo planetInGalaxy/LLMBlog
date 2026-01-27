@@ -64,6 +64,8 @@ function StudioRagLogDetail() {
               <li>topK: {log.topK ?? '-'}</li>
               <li>minScore: {log.minScore ?? '-'}</li>
               <li>chunkSize: {log.chunkSize ?? '-'}</li>
+              <li>vectorWeight: {log.vectorWeight ?? '-'}</li>
+              <li>bm25Weight: {log.bm25Weight ?? '-'}</li>
               <li>returnCitations: {String(!!log.returnCitations)}</li>
             </ul>
 

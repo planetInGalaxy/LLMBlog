@@ -53,6 +53,8 @@ public class RagObservabilityService {
             l.setMinScore(cfg.getMinScore());
             l.setChunkSize(cfg.getChunkSize());
             l.setReturnCitations(cfg.getReturnCitations());
+            l.setVectorWeight(cfg.getVectorWeight());
+            l.setBm25Weight(cfg.getBm25Weight());
         }
         return l;
     }

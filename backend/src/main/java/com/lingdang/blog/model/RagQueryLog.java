@@ -53,6 +53,12 @@ public class RagQueryLog {
     @Column(name = "return_citations")
     private Boolean returnCitations;
 
+    @Column(name = "vector_weight")
+    private Integer vectorWeight;
+
+    @Column(name = "bm25_weight")
+    private Integer bm25Weight;
+
     // metrics
     @Column(name = "vector_candidates")
     private Integer vectorCandidates;
