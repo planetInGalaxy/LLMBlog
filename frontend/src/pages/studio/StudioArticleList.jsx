@@ -164,6 +164,7 @@ function StudioArticleList() {
         <div className="header-actions">
           <button onClick={() => navigate('/studio/articles/new')}>新建文章</button>
           <button onClick={() => navigate('/studio/settings')} className="btn-info">RAG 配置</button>
+          <button onClick={() => navigate('/studio/chunks')} className="btn-info">查看Chunks</button>
           <button
             onClick={handleReindexAll}
             disabled={loading}

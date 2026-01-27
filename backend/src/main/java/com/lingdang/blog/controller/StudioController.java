@@ -6,6 +6,8 @@ import com.lingdang.blog.dto.assistant.RagConfigDTO;
 import com.lingdang.blog.dto.article.ArticleDTO;
 import com.lingdang.blog.service.ArticleService;
 import com.lingdang.blog.service.IndexPipelineService;
+import com.lingdang.blog.service.ArticleChunkService;
+import com.lingdang.blog.dto.article.ArticleChunkDTO;
 import com.lingdang.blog.model.RagQueryHit;
 import com.lingdang.blog.model.RagQueryLog;
 import com.lingdang.blog.model.RagReindexJob;
@@ -50,6 +52,9 @@ public class StudioController {
 
     @Autowired
     private RagQueryHitRepository ragQueryHitRepository;
+
+    @Autowired
+    private ArticleChunkService articleChunkService;
     
     /**
      * 获取所有文章（含草稿）
@@ -260,6 +265,25 @@ public class StudioController {
         data.put("log", log);
         data.put("hits", hits);
         return ResponseEntity.ok(ApiResponse.success(data));
+    }
+
+    /**
+     * 查看当前 chunks 切片（来自 MySQL article_chunks 表）
+     */
+    @GetMapping("/chunks")
+    public ResponseEntity<ApiResponse<List<ArticleChunkDTO>>> listChunks(
+            @RequestParam(required = false) Long articleId,
+            @RequestParam(required = false) Integer page,
+            @RequestParam(required = false) Integer pageSize) {
+        return ResponseEntity.ok(ApiResponse.success(articleChunkService.listChunks(articleId, page, pageSize)));
+    }
+
+    /**
+     * 查看指定文章的 chunks 切片（按序号升序）
+     */
+    @GetMapping("/articles/{id}/chunks")
+    public ResponseEntity<ApiResponse<List<ArticleChunkDTO>>> listChunksByArticle(@PathVariable Long id) {
+        return ResponseEntity.ok(ApiResponse.success(articleChunkService.listChunksByArticleId(id)));
     }
 
     /**

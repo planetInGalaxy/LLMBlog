@@ -1,6 +1,8 @@
 package com.lingdang.blog.repository;
 
 import com.lingdang.blog.model.ArticleChunk;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
@@ -22,6 +24,11 @@ public interface ArticleChunkRepository extends JpaRepository<ArticleChunk, Long
      * 根据文章 ID 查找所有 chunk
      */
     List<ArticleChunk> findByArticleIdOrderBySequenceNumberAsc(Long articleId);
+
+    /**
+     * 分页查询 chunks（可选按 articleId 过滤）
+     */
+    Page<ArticleChunk> findByArticleId(Long articleId, Pageable pageable);
     
     /**
      * 根据文章 ID 和索引版本查找
