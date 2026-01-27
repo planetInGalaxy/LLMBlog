@@ -1,0 +1,153 @@
+.app {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+/* 通用容器 */
+.container {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 0 2rem;
+}
+
+/* ========== 头部样式 ========== */
+.header {
+  background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
+  color: white;
+  padding: 1.5rem 0;
+  box-shadow: var(--shadow-lg);
+  position: sticky;
+  top: 0;
+  z-index: 100;
+}
+
+.header .container {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.logo {
+  font-size: 1.8rem;
+  font-weight: bold;
+  text-decoration: none;
+  color: white;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  transition: transform 0.3s;
+}
+
+.logo:hover {
+  transform: scale(1.05);
+}
+
+nav {
+  display: flex;
+  gap: 2rem;
+}
+
+nav a {
+  color: white;
+  text-decoration: none;
+  font-weight: 500;
+  padding: 0.5rem 1rem;
+  border-radius: var(--radius);
+  transition: all 0.3s;
+  position: relative;
+}
+
+nav a:hover {
+  background: rgba(255, 255, 255, 0.2);
+  transform: translateY(-2px);
+}
+
+nav a.is-active {
+  background: rgba(255, 255, 255, 0.25);
+  font-weight: 600;
+}
+
+nav a.is-active::after {
+  content: '';
+  position: absolute;
+  left: 0.8rem;
+  right: 0.8rem;
+  bottom: 0.35rem;
+  height: 2px;
+  background: rgba(255, 255, 255, 0.95);
+  border-radius: 999px;
+}
+
+/* ========== 主内容区 ========== */
+.main {
+  flex: 1;
+  padding: 3rem 0;
+}
+
+/* ========== 页脚 ========== */
+.footer {
+  background: var(--text-color);
+  color: white;
+  padding: 2rem 0;
+  margin-top: auto;
+  text-align: center;
+}
+
+.footer-content {
+  position: relative;
+}
+
+.footer p {
+  margin: 0.5rem 0;
+  opacity: 0.9;
+}
+
+.footer-version {
+  position: absolute;
+  right: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 0.8rem;
+  opacity: 0.7;
+  letter-spacing: 0.02em;
+}
+
+.footer.footer-assistant {
+  display: none;
+}
+
+@media (max-width: 640px) {
+  .footer-version {
+    position: static;
+    display: block;
+    margin-top: 0.5rem;
+    transform: none;
+  }
+}
+
+@media (max-width: 768px) {
+  .container {
+    padding: 0 1rem;
+  }
+
+  .header .container {
+    flex-direction: column;
+    gap: 1rem;
+  }
+
+  nav {
+    gap: 1rem;
+  }
+}
+
+@media (max-width: 480px) {
+  nav {
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+
+  nav a {
+    padding: 0.5rem 0.75rem;
+  }
+}
