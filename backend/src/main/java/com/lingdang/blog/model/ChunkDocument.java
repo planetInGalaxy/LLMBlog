@@ -41,13 +41,13 @@ public class ChunkDocument {
     /**
      * 文章标题
      */
-    @Field(type = FieldType.Text, analyzer = "ik_max_word")
+    @Field(type = FieldType.Text)
     private String title;
     
     /**
      * 标签
      */
-    @Field(type = FieldType.Text, analyzer = "ik_max_word")
+    @Field(type = FieldType.Text)
     private String tags;
     
     /**
@@ -71,7 +71,7 @@ public class ChunkDocument {
     /**
      * 标题文本
      */
-    @Field(type = FieldType.Text, analyzer = "ik_max_word")
+    @Field(type = FieldType.Text)
     private String headingText;
     
     /**
@@ -83,7 +83,7 @@ public class ChunkDocument {
     /**
      * Chunk 文本内容
      */
-    @Field(type = FieldType.Text, analyzer = "ik_max_word")
+    @Field(type = FieldType.Text)
     private String chunkText;
     
     /**
