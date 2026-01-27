@@ -8,7 +8,8 @@ function StudioRagSettings() {
     topK: '5',
     minScore: '0',
     chunkSize: '900',
-    returnCitations: true
+    returnCitations: true,
+    vectorWeight: '70'
   });
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -32,7 +33,8 @@ function StudioRagSettings() {
           topK: String(data.topK ?? 5),
           minScore: String(data.minScore ?? 0),
           chunkSize: String(data.chunkSize ?? 900),
-          returnCitations: data.returnCitations !== false
+          returnCitations: data.returnCitations !== false,
+          vectorWeight: String(data.vectorWeight ?? 70)
         });
       } else {
         alert(cfgResult.message || '获取配置失败');
@@ -65,6 +67,8 @@ function StudioRagSettings() {
     const topK = parseNumber(form.topK, 5);
     const minScore = parseNumber(form.minScore, 0);
     const chunkSize = parseNumber(form.chunkSize, 900);
+    const vectorWeight = parseNumber(form.vectorWeight, 70);
+    const bm25Weight = 100 - vectorWeight;
 
     if (topK < 1 || topK > 50) {
       alert('topK 需在 1 ~ 50 之间');
@@ -76,6 +80,10 @@ function StudioRagSettings() {
     }
     if (chunkSize < 50 || chunkSize > 2000) {
       alert('chunkSize 建议在 50 ~ 2000 之间');
+      return;
+    }
+    if (vectorWeight < 0 || vectorWeight > 100) {
+      alert('向量/BM25 权重需在 0 ~ 100 之间');
       return;
     }
 
@@ -92,6 +100,8 @@ function StudioRagSettings() {
           topK,
           minScore,
           chunkSize,
+          vectorWeight,
+          bm25Weight,
           returnCitations: !!form.returnCitations
         })
       });
@@ -104,7 +114,8 @@ function StudioRagSettings() {
           topK: String(data.topK ?? topK),
           minScore: String(data.minScore ?? minScore),
           returnCitations: data.returnCitations !== false,
-          chunkSize: String(data.chunkSize ?? prev.chunkSize)
+          chunkSize: String(data.chunkSize ?? prev.chunkSize),
+          vectorWeight: String(data.vectorWeight ?? vectorWeight)
         }));
 
         // 刷新一次任务状态（如果 chunkSize 触发了异步重建）
@@ -166,6 +177,22 @@ function StudioRagSettings() {
             value={form.minScore}
             onChange={(e) => setForm(prev => ({ ...prev, minScore: e.target.value }))}
           />
+        </div>
+
+        <div className="form-group">
+          <label>召回融合权重（相似度 vs BM25，总和=100）</label>
+          <input
+            type="range"
+            min="0"
+            max="100"
+            step="1"
+            value={form.vectorWeight}
+            onChange={(e) => setForm(prev => ({ ...prev, vectorWeight: e.target.value }))}
+            disabled={saving}
+          />
+          <div className="form-hint">
+            相似度：{form.vectorWeight}% ，BM25：{100 - Number(form.vectorWeight || 0)}%
+          </div>
         </div>
         <div className="form-group">
           <label>

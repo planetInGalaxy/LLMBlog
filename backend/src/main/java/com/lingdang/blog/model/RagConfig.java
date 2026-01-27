@@ -38,6 +38,18 @@ public class RagConfig {
     @Column(name = "return_citations")
     private Boolean returnCitations;
 
+    /**
+     * 混合检索权重：向量相似度权重（0~100）
+     */
+    @Column(name = "vector_weight")
+    private Integer vectorWeight;
+
+    /**
+     * 混合检索权重：BM25 权重（0~100）
+     */
+    @Column(name = "bm25_weight")
+    private Integer bm25Weight;
+
     @CreationTimestamp
     @Column(name = "created_at", updatable = false)
     private LocalDateTime createdAt;

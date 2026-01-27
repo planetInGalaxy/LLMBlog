@@ -27,6 +27,8 @@ public class RagConfigService {
     private static final double DEFAULT_MIN_SCORE = 0.0;
     private static final int DEFAULT_CHUNK_SIZE = 900;
     private static final boolean DEFAULT_RETURN_CITATIONS = true;
+    private static final int DEFAULT_VECTOR_WEIGHT = 70;
+    private static final int DEFAULT_BM25_WEIGHT = 30;
 
     @Autowired
     private RagConfigRepository ragConfigRepository;
@@ -118,6 +120,8 @@ public class RagConfigService {
             if (update.getTopK() != null) next.setTopK(update.getTopK());
             if (update.getMinScore() != null) next.setMinScore(update.getMinScore());
             if (update.getReturnCitations() != null) next.setReturnCitations(update.getReturnCitations());
+            if (update.getVectorWeight() != null) next.setVectorWeight(update.getVectorWeight());
+            if (update.getBm25Weight() != null) next.setBm25Weight(update.getBm25Weight());
 
             // 2) chunkSize 是否变化由 Controller 决定是否提交异步重建任务。
             //    这里不再依赖 RagReindexJobService，避免循环依赖。
@@ -126,6 +130,8 @@ public class RagConfigService {
             entity.setTopK(next.getTopK());
             entity.setMinScore(next.getMinScore());
             entity.setReturnCitations(next.getReturnCitations());
+            entity.setVectorWeight(next.getVectorWeight());
+            entity.setBm25Weight(next.getBm25Weight());
 
             RagConfig saved = ragConfigRepository.save(entity);
             current = toDTO(saved);
@@ -155,6 +161,17 @@ public class RagConfigService {
                 throw new IllegalArgumentException("chunkSize 建议在 50 ~ 2000 之间");
             }
         }
+
+        if (update.getVectorWeight() != null || update.getBm25Weight() != null) {
+            int vectorW = update.getVectorWeight() != null ? update.getVectorWeight() : -1;
+            int bm25W = update.getBm25Weight() != null ? update.getBm25Weight() : -1;
+            if ((vectorW != -1 && (vectorW < 0 || vectorW > 100)) || (bm25W != -1 && (bm25W < 0 || bm25W > 100))) {
+                throw new IllegalArgumentException("权重需在 0 ~ 100 之间");
+            }
+            if (vectorW != -1 && bm25W != -1 && vectorW + bm25W != 100) {
+                throw new IllegalArgumentException("vectorWeight + bm25Weight 必须等于 100");
+            }
+        }
     }
 
     private RagConfig ensureEntity() {
@@ -169,6 +186,8 @@ public class RagConfigService {
         created.setMinScore(DEFAULT_MIN_SCORE);
         created.setChunkSize(DEFAULT_CHUNK_SIZE);
         created.setReturnCitations(DEFAULT_RETURN_CITATIONS);
+        created.setVectorWeight(DEFAULT_VECTOR_WEIGHT);
+        created.setBm25Weight(DEFAULT_BM25_WEIGHT);
 
         return ragConfigRepository.save(created);
     }
@@ -179,6 +198,20 @@ public class RagConfigService {
         dto.setMinScore(entity.getMinScore() != null ? entity.getMinScore() : DEFAULT_MIN_SCORE);
         dto.setChunkSize(entity.getChunkSize() != null ? entity.getChunkSize() : DEFAULT_CHUNK_SIZE);
         dto.setReturnCitations(Boolean.TRUE.equals(entity.getReturnCitations()));
+
+        Integer vectorW = entity.getVectorWeight();
+        Integer bm25W = entity.getBm25Weight();
+        if (vectorW == null && bm25W == null) {
+            vectorW = DEFAULT_VECTOR_WEIGHT;
+            bm25W = DEFAULT_BM25_WEIGHT;
+        } else if (vectorW == null) {
+            vectorW = Math.max(0, 100 - bm25W);
+        } else if (bm25W == null) {
+            bm25W = Math.max(0, 100 - vectorW);
+        }
+        dto.setVectorWeight(vectorW);
+        dto.setBm25Weight(bm25W);
+
         return dto;
     }
 
@@ -203,6 +236,8 @@ public class RagConfigService {
         copy.setMinScore(source.getMinScore());
         copy.setChunkSize(source.getChunkSize());
         copy.setReturnCitations(source.getReturnCitations());
+        copy.setVectorWeight(source.getVectorWeight());
+        copy.setBm25Weight(source.getBm25Weight());
         return copy;
     }
 }

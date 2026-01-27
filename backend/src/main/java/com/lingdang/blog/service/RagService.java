@@ -276,8 +276,17 @@ public class RagService {
         // BM25 检索
         List<RetrievalResult> bm25Results = bm25Search(question, bm25TopK);
 
+        RagConfigDTO cfg = ragConfigService.getConfig();
+        int vectorWeight = cfg.getVectorWeight() != null ? cfg.getVectorWeight() : 70;
+        int bm25Weight = cfg.getBm25Weight() != null ? cfg.getBm25Weight() : 30;
+        // 兜底：保证和为 100
+        if (vectorWeight + bm25Weight != 100) {
+            vectorWeight = 70;
+            bm25Weight = 30;
+        }
+
         // 合并去重并重排序
-        List<RetrievalResult> merged = mergeAndRerank(vectorResults, bm25Results, safeTopK);
+        List<RetrievalResult> merged = mergeAndRerank(vectorResults, bm25Results, safeTopK, vectorWeight, bm25Weight);
         return new HybridSearchResult(merged,
             vectorResults != null ? vectorResults.size() : 0,
             bm25Results != null ? bm25Results.size() : 0);
@@ -425,7 +434,9 @@ public class RagService {
      */
     private List<RetrievalResult> mergeAndRerank(List<RetrievalResult> vectorResults, 
                                                    List<RetrievalResult> bm25Results, 
-                                                   int topK) {
+                                                   int topK,
+                                                   int vectorWeight,
+                                                   int bm25Weight) {
         Map<String, RetrievalResult> merged = new HashMap<>();
         
         // 合并向量结果
@@ -453,13 +464,16 @@ public class RagService {
             .max()
             .orElse(1.0);
         
-        // 归一化并重排序：0.7 * normalized_vector + 0.3 * normalized_bm25
+        // 归一化并重排序：vectorWeight + bm25Weight = 100
         // 最终分数范围：0.0 ~ 1.0
+        final double vw = Math.max(0, Math.min(100, vectorWeight)) / 100.0;
+        final double bw = Math.max(0, Math.min(100, bm25Weight)) / 100.0;
+
         return merged.values().stream()
             .peek(r -> {
                 double normalizedVector = maxVectorScore > 0 ? r.getVectorScore() / maxVectorScore : 0.0;
                 double normalizedBm25 = maxBm25Score > 0 ? r.getBm25Score() / maxBm25Score : 0.0;
-                double finalScore = 0.7 * normalizedVector + 0.3 * normalizedBm25;
+                double finalScore = vw * normalizedVector + bw * normalizedBm25;
                 r.setFinalScore(finalScore);
             })
             .sorted((a, b) -> Double.compare(b.getFinalScore(), a.getFinalScore()))
