@@ -12,6 +12,10 @@ RUN npm install
 # 复制源代码
 COPY . .
 
+# 传入构建版本号
+ARG VITE_APP_VERSION=dev
+ENV VITE_APP_VERSION=$VITE_APP_VERSION
+
 # 构建应用
 RUN npm run build
 

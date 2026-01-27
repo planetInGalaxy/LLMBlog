@@ -44,6 +44,15 @@ fi
 echo ""
 echo "🚀 步骤 3/4: 重新部署..."
 docker-compose down
+
+# 生成前端构建版本号
+APP_VERSION="dev"
+if [ -d ".git" ]; then
+    APP_VERSION=$(git rev-parse --short HEAD 2>/dev/null || echo "dev")
+fi
+export APP_VERSION
+echo "🏷️  构建版本: $APP_VERSION"
+
 docker-compose up -d --build
 
 # 等待服务启动

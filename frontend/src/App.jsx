@@ -10,9 +10,42 @@ import './App.css';
 const API_URL = import.meta.env.VITE_API_URL || '/api';
 
 const SUMMARY_LENGTH = 80;
+const DESCRIPTION_LENGTH = 150;
 const STUDIO_AUTH_MESSAGE = '登录已过期，请重新登录';
 const STUDIO_SERVER_ERROR_MESSAGE = '服务器开小差了，请稍后再试';
 const ASSISTANT_REQUEST_TIMEOUT_MS = 60000;
+const APP_VERSION = String(
+  import.meta.env.VITE_APP_VERSION
+  || (typeof window !== 'undefined' && window.__APP_VERSION__)
+  || (import.meta.env.DEV ? 'dev' : '')
+).trim();
+
+const getPageUrl = (pathname = '') => {
+  if (typeof window === 'undefined') return pathname;
+  return `${window.location.origin}${pathname}`;
+};
+
+const setMetaTag = (attribute, key, content) => {
+  if (typeof document === 'undefined' || !content) return;
+  const selector = `meta[${attribute}="${key}"]`;
+  let element = document.querySelector(selector);
+  if (!element) {
+    element = document.createElement('meta');
+    element.setAttribute(attribute, key);
+    document.head.appendChild(element);
+  }
+  element.setAttribute('content', content);
+};
+
+const updateSeoTags = ({ title, description, type, url }) => {
+  if (typeof document === 'undefined') return;
+  if (title) document.title = title;
+  if (description) setMetaTag('name', 'description', description);
+  if (title) setMetaTag('property', 'og:title', title);
+  if (description) setMetaTag('property', 'og:description', description);
+  if (type) setMetaTag('property', 'og:type', type);
+  if (url) setMetaTag('property', 'og:url', url);
+};
 
 const handleStudioWriteResponse = async (response, navigate) => {
   if (response.status === 401 || response.status === 403) {
@@ -54,6 +87,14 @@ const getArticleSummary = (article) => {
   const fallback = stripMarkdown(article?.contentMarkdown || '');
   if (!fallback) return '暂无摘要';
   return fallback.slice(0, SUMMARY_LENGTH);
+};
+
+const getArticleDescription = (article) => {
+  const summary = (article?.summary || '').trim();
+  const fallback = stripMarkdown(article?.contentMarkdown || '');
+  const base = summary || fallback;
+  if (!base) return '铃铛师兄大模型博客文章分享。';
+  return base.slice(0, DESCRIPTION_LENGTH);
 };
 
 // ==================== 主页 ====================
@@ -141,10 +182,22 @@ function HomePage() {
 function BlogListPage() {
   const [articles, setArticles] = useState([]);
   const [loading, setLoading] = useState(true);
+  const location = useLocation();
 
   useEffect(() => {
     fetchArticles();
   }, []);
+
+  useEffect(() => {
+    const title = '文章列表 - 铃铛师兄大模型';
+    const description = '浏览铃铛师兄大模型博客最新文章，涵盖大模型、生成式AI、NLP、机器学习等内容。';
+    updateSeoTags({
+      title,
+      description,
+      type: 'website',
+      url: getPageUrl(location.pathname)
+    });
+  }, [location.pathname]);
 
   const fetchArticles = async () => {
     try {
@@ -199,10 +252,31 @@ function BlogDetailPage() {
   const [article, setArticle] = useState(null);
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
+  const location = useLocation();
 
   useEffect(() => {
     fetchArticle();
   }, [slug]);
+
+  useEffect(() => {
+    const url = getPageUrl(location.pathname);
+    if (notFound) {
+      updateSeoTags({
+        title: '文章不存在 - 铃铛师兄大模型',
+        description: '你访问的文章可能已下线或链接有误，请返回博客列表浏览。',
+        type: 'website',
+        url
+      });
+      return;
+    }
+    if (!article) return;
+    updateSeoTags({
+      title: `${article.title} - 铃铛师兄大模型`,
+      description: getArticleDescription(article),
+      type: 'article',
+      url
+    });
+  }, [article, notFound, location.pathname]);
 
   const fetchArticle = async () => {
     try {
@@ -1203,8 +1277,9 @@ function App() {
       </main>
 
       <footer className={`footer${isAssistant ? ' footer-assistant' : ''}`}>
-        <div className="container">
+        <div className="container footer-content">
           <p>© 2026 铃铛师兄大模型 | 专注AI技术分享</p>
+          {APP_VERSION ? <span className="footer-version">v{APP_VERSION}</span> : null}
         </div>
       </footer>
     </div>

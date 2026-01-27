@@ -117,6 +117,12 @@ docker compose down 2>/dev/null || docker-compose down 2>/dev/null || echo "没�
 # 6. 启动服务
 echo ""
 echo "步骤 6/6: 启动服务..."
+APP_VERSION="dev"
+if [ -d ".git" ]; then
+    APP_VERSION=$(git rev-parse --short HEAD 2>/dev/null || echo "dev")
+fi
+export APP_VERSION
+echo "构建版本: $APP_VERSION"
 docker compose up -d --build 2>/dev/null || docker-compose up -d --build
 
 # 等待服务启动

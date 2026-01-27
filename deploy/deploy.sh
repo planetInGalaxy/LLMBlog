@@ -63,6 +63,14 @@ docker-compose down
 echo "🧹 清理旧镜像..."
 docker system prune -f
 
+# 生成前端构建版本号
+APP_VERSION="dev"
+if [ -d ".git" ]; then
+    APP_VERSION=$(git rev-parse --short HEAD 2>/dev/null || echo "dev")
+fi
+export APP_VERSION
+echo "🏷️  构建版本: $APP_VERSION"
+
 # 构建并启动新容器
 echo "🚀 构建并启动服务..."
 docker-compose up -d --build

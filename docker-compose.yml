@@ -98,7 +98,10 @@ services:
 
   # 前端服务
   frontend:
-    build: ./frontend
+    build:
+      context: ./frontend
+      args:
+        VITE_APP_VERSION: ${APP_VERSION:-dev}
     container_name: lingdang-frontend
     ports:
       - "80:80"
