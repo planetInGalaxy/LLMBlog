@@ -55,6 +55,7 @@ function StudioRagSettings() {
   const handleSave = async () => {
     const topK = parseNumber(form.topK, 5);
     const minScore = parseNumber(form.minScore, 0);
+    const chunkSize = parseNumber(form.chunkSize, 900);
 
     if (topK < 1 || topK > 50) {
       alert('topK 需在 1 ~ 50 之间');
@@ -62,6 +63,10 @@ function StudioRagSettings() {
     }
     if (minScore < 0 || minScore > 1) {
       alert('minScore 需在 0 ~ 1 之间');
+      return;
+    }
+    if (chunkSize < 200 || chunkSize > 2000) {
+      alert('chunkSize 建议在 200 ~ 2000 之间');
       return;
     }
 
@@ -77,6 +82,7 @@ function StudioRagSettings() {
         body: JSON.stringify({
           topK,
           minScore,
+          chunkSize,
           returnCitations: !!form.returnCitations
         })
       });
@@ -89,7 +95,7 @@ function StudioRagSettings() {
           topK: String(data.topK ?? topK),
           minScore: String(data.minScore ?? minScore),
           returnCitations: data.returnCitations !== false,
-          chunkSize: String(data.chunkSize ?? prev.chunkSize)
+          chunkSize: String(data.chunkSize ?? chunkSize)
         }));
         alert('保存成功！');
       } else {
