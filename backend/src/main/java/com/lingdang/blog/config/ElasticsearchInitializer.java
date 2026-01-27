@@ -27,7 +27,7 @@ public class ElasticsearchInitializer {
     /**
      * 读写别名（线上永远通过 alias 访问，便于蓝绿重建索引）
      */
-    public static final String INDEX_ALIAS = "lingdang_chunks";
+    public static final String INDEX_ALIAS = "lingdang_chunks_alias";
 
     /**
      * 旧版本固定索引名（历史兼容）
