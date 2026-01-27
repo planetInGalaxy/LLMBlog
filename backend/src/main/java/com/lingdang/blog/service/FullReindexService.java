@@ -80,7 +80,8 @@ public class FullReindexService {
             // 失败时删除新索引（如果已创建）
             if (newIndex != null) {
                 try {
-                    esClient.indices().delete(d -> d.index(newIndex));
+                    final String indexToDelete = newIndex;
+                    esClient.indices().delete(d -> d.index(indexToDelete));
                 } catch (Exception ignored) {
                 }
             }
