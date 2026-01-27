@@ -261,8 +261,8 @@
   position: fixed;
   right: 1.25rem;
   bottom: 1.25rem;
-  width: 44px;
-  height: 44px;
+  width: 52px;
+  height: 52px;
   border-radius: 999px;
   border: 1px solid var(--border-color);
   background: var(--card-bg);
@@ -273,6 +273,8 @@
   transform: translateY(8px);
   pointer-events: none;
   transition: opacity 0.2s, transform 0.2s;
+  font-size: 1.3rem;
+  line-height: 1;
 }
 
 .back-to-top--visible {
