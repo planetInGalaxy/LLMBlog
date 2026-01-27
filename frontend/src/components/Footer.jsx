@@ -4,12 +4,16 @@ const APP_VERSION = String(
   || (import.meta.env.DEV ? 'dev' : '')
 ).trim();
 
+const DISPLAY_VERSION = APP_VERSION ? APP_VERSION.slice(0, 7) : '';
+
 function Footer({ isAssistant }) {
   return (
     <footer className={`footer${isAssistant ? ' footer-assistant' : ''}`}>
       <div className="container footer-content">
         <p>© 2026 铃铛师兄大模型 | 专注AI技术分享</p>
-        {APP_VERSION ? <span className="footer-version">v{APP_VERSION}</span> : null}
+        {DISPLAY_VERSION ? (
+          <span className="footer-version" title={APP_VERSION}>v{DISPLAY_VERSION}</span>
+        ) : null}
       </div>
     </footer>
   );
