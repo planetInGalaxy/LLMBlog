@@ -56,7 +56,7 @@ public class FullReindexService {
         rebuildAllPublishedToNewIndex(options, null, null);
     }
 
-    public void rebuildAllPublishedToNewIndex(ChunkingOptions options, ProgressListener progressListener, NewIndexListener newIndexListener) {"}
+    public void rebuildAllPublishedToNewIndex(ChunkingOptions options, ProgressListener progressListener, NewIndexListener newIndexListener) {
         String oldIndex = esInitializer.resolveCurrentIndex();
         String newIndex = null;
 
