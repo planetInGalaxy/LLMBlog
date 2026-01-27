@@ -92,14 +92,19 @@ public class ChunkService {
             headings.add(new HeadingInfo(level, text, start));
         }
         
-        // 如果没有标题，整篇文章作为一个 chunk
+        // 如果没有标题，整篇文章按 maxTokens 切分（避免超长导致 embedding 失败）
         if (headings.isEmpty()) {
-            ChunkDraft chunk = new ChunkDraft();
-            chunk.setHeadingLevel(0);
-            chunk.setHeadingText("");
-            chunk.setAnchor("");
-            chunk.setChunkText(markdown);
-            chunks.add(chunk);
+            int maxTokens = options != null ? options.getMaxTokens() : DEFAULT_MAX_TOKENS;
+            if (estimateTokenCount(markdown) > maxTokens) {
+                chunks.addAll(splitLargeChunk(markdown, 0, "", options));
+            } else {
+                ChunkDraft chunk = new ChunkDraft();
+                chunk.setHeadingLevel(0);
+                chunk.setHeadingText("");
+                chunk.setAnchor("");
+                chunk.setChunkText(markdown);
+                chunks.add(chunk);
+            }
             return chunks;
         }
         
@@ -148,7 +153,7 @@ public class ChunkService {
         for (String para : paragraphs) {
             int paraTokens = estimateTokenCount(para);
 
-            if (tokenCount + paraTokens > maxTokens && tokenCount > minTokens) {
+            if (tokenCount + paraTokens > maxTokens && tokenCount >= minTokens) {
                 // 保存当前 chunk
                 String chunkBody = currentChunk.toString().trim();
                 ChunkDraft chunk = new ChunkDraft();

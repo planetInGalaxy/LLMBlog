@@ -244,10 +244,17 @@ public class RagConfigService {
     public ChunkingOptions getChunkingOptions() {
         RagConfigDTO cfg = getConfig();
         int max = cfg.getChunkSize() != null ? cfg.getChunkSize() : DEFAULT_CHUNK_SIZE;
+        max = Math.max(50, max);
 
         // 经验值：min 约为 max 的 2/3，overlap 约为 max 的 10%
-        int min = Math.max(200, (int) Math.round(max * 0.67));
-        int overlap = Math.min(200, Math.max(0, (int) Math.round(max * 0.10)));
+        // 关键：必须保证 min <= max，否则切分逻辑会生成远超 max 的 chunk（进而导致 embedding 超上下文长度）
+        int min = (int) Math.round(max * 0.67);
+        min = Math.max(20, min);
+        min = Math.min(min, max);
+
+        int overlap = (int) Math.round(max * 0.10);
+        overlap = Math.max(0, overlap);
+        overlap = Math.min(overlap, Math.max(0, max - 1));
 
         return ChunkingOptions.of(min, max, overlap);
     }
