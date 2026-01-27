@@ -151,7 +151,70 @@ public class ChunkService {
         String lastOverlapText = "";
 
         for (String para : paragraphs) {
+            if (para == null) continue;
+
             int paraTokens = estimateTokenCount(para);
+
+            // 兜底：如果单个段落就已经超过 maxTokens，则强制把段落本身切成多段
+            if (paraTokens > maxTokens) {
+                // 在开始切超长段落前，先落盘当前 chunk（如果已经累积了一些内容）
+                if (tokenCount >= minTokens && currentChunk.length() > 0) {
+                    String chunkBody = currentChunk.toString().trim();
+                    ChunkDraft chunk = new ChunkDraft();
+                    chunk.setHeadingLevel(level);
+                    chunk.setHeadingText(headingText);
+                    chunk.setAnchor(markdownService.generateAnchor(headingText));
+                    chunk.setChunkText(chunkBody);
+                    chunks.add(chunk);
+
+                    lastOverlapText = takeTailByEstimatedTokens(chunkBody, overlapTokens);
+                    currentChunk = new StringBuilder();
+                    tokenCount = 0;
+                    if (!lastOverlapText.isBlank()) {
+                        currentChunk.append(lastOverlapText).append("\n\n");
+                        tokenCount += estimateTokenCount(lastOverlapText);
+                    }
+                }
+
+                // 把超长段落按字符近似 token 切片（estimateTokenCount = length/4）
+                int maxChars = Math.max(1, maxTokens * 4);
+                int overlapChars = Math.max(0, overlapTokens * 4);
+                int start = 0;
+                while (start < para.length()) {
+                    int end = Math.min(para.length(), start + maxChars);
+                    String part = para.substring(start, end).trim();
+                    if (!part.isEmpty()) {
+                        // 如果当前 chunk 加上 part 超了，且当前 chunk 已经够大，则先落盘
+                        int partTokens = estimateTokenCount(part);
+                        if (tokenCount + partTokens > maxTokens && tokenCount >= minTokens && currentChunk.length() > 0) {
+                            String chunkBody = currentChunk.toString().trim();
+                            ChunkDraft chunk = new ChunkDraft();
+                            chunk.setHeadingLevel(level);
+                            chunk.setHeadingText(headingText);
+                            chunk.setAnchor(markdownService.generateAnchor(headingText));
+                            chunk.setChunkText(chunkBody);
+                            chunks.add(chunk);
+
+                            lastOverlapText = takeTailByEstimatedTokens(chunkBody, overlapTokens);
+                            currentChunk = new StringBuilder();
+                            tokenCount = 0;
+                            if (!lastOverlapText.isBlank()) {
+                                currentChunk.append(lastOverlapText).append("\n\n");
+                                tokenCount += estimateTokenCount(lastOverlapText);
+                            }
+                        }
+
+                        currentChunk.append(part).append("\n\n");
+                        tokenCount += partTokens;
+                    }
+
+                    // move window with overlap
+                    if (end >= para.length()) break;
+                    start = Math.max(0, end - overlapChars);
+                }
+
+                continue;
+            }
 
             if (tokenCount + paraTokens > maxTokens && tokenCount >= minTokens) {
                 // 保存当前 chunk

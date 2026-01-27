@@ -229,7 +229,21 @@ public class IndexPipelineService {
             List<ChunkDocument> documents = new ArrayList<>();
             for (ArticleChunk chunk : chunks) {
                 try {
-                    float[] embedding = llmService.generateEmbedding(chunk.getChunkText());
+                    // 兜底：避免超长 chunk 直接导致 Ollama embedding 400
+                    String chunkText = chunk.getChunkText();
+                    ChunkingOptions opts = ragConfigService.getChunkingOptions();
+                    int maxTokens = opts != null ? opts.getMaxTokens() : 900;
+                    if (chunkText != null) {
+                        int estimatedTokens = chunkText.length() / 4;
+                        if (estimatedTokens > maxTokens) {
+                            int maxChars = Math.max(1, maxTokens * 4);
+                            log.warn("chunkText 超过 maxTokens，将截断以避免 embedding 失败: chunk_id={}, estimatedTokens={}, maxTokens={}",
+                                chunk.getChunkId(), estimatedTokens, maxTokens);
+                            chunkText = chunkText.substring(0, Math.min(chunkText.length(), maxChars));
+                        }
+                    }
+
+                    float[] embedding = llmService.generateEmbedding(chunkText);
                     
                     ChunkDocument doc = new ChunkDocument();
                     doc.setChunkId(chunk.getChunkId());
