@@ -155,7 +155,8 @@ public class RagService {
             float[] queryEmbedding = llmService.generateEmbedding(request.getQuestion());
             
             // 2. 混合检索（向量 + BM25）
-            List<RetrievalResult> results = hybridSearch(request.getQuestion(), queryEmbedding, topK);
+            HybridSearchResult hybrid = hybridSearch(request.getQuestion(), queryEmbedding, topK);
+            List<RetrievalResult> results = hybrid.merged;
             
             // 3. 过滤高相关度文章
             List<RetrievalResult> highRelevanceResults = filterHighRelevanceResults(results, minScore, topK);
@@ -213,6 +214,29 @@ public class RagService {
             
             // 8. 记录日志
             logQuery(requestId, clientIp, request, highRelevanceResults, llmResponse, response, true);
+
+            // 8.1 记录 RAG 评估日志（仅用于 Studio）
+            try {
+                RagConfigDTO cfg = ragConfigService.getConfig();
+                RagQueryLog ragLog = ragObservabilityService.buildBaseLog(requestId, clientIp, request.getQuestion(), cfg);
+                ragLog.setHasArticles(!highRelevanceResults.isEmpty());
+                ragLog.setVectorCandidates(hybrid.vectorCount);
+                ragLog.setBm25Candidates(hybrid.bm25Count);
+                ragLog.setFilteredCandidates(highRelevanceResults.size());
+                ragLog.setCitationsCount(response.getCitations() != null ? response.getCitations().size() : 0);
+                ragLog.setLatencyMs(response.getLatencyMs());
+                ragLog.setSuccess(true);
+                String hitIds = highRelevanceResults.stream()
+                    .map(RetrievalResult::getArticleId)
+                    .filter(java.util.Objects::nonNull)
+                    .distinct()
+                    .map(String::valueOf)
+                    .collect(java.util.stream.Collectors.joining(","));
+                ragLog.setHitArticleIds(hitIds);
+                ragObservabilityService.upsertQueryLog(ragLog);
+            } catch (Exception ignored) {
+            }
+
             
             return response;
             
@@ -226,22 +250,38 @@ public class RagService {
         }
     }
     
+    private static class HybridSearchResult {
+        private final List<RetrievalResult> merged;
+        private final int vectorCount;
+        private final int bm25Count;
+
+        private HybridSearchResult(List<RetrievalResult> merged, int vectorCount, int bm25Count) {
+            this.merged = merged;
+            this.vectorCount = vectorCount;
+            this.bm25Count = bm25Count;
+        }
+    }
+
     /**
      * 混合检索（向量 + BM25）
      */
-    private List<RetrievalResult> hybridSearch(String question, float[] queryEmbedding, int topK) throws IOException {
+    private HybridSearchResult hybridSearch(String question, float[] queryEmbedding, int topK) throws IOException {
         int safeTopK = Math.max(topK, 1);
         int vectorTopK = Math.min(Math.max(safeTopK * 10, 50), 100);
         int bm25TopK = Math.min(Math.max(safeTopK * 4, 20), 100);
 
         // 向量检索
         List<RetrievalResult> vectorResults = vectorSearch(queryEmbedding, vectorTopK);
-        
+
         // BM25 检索
         List<RetrievalResult> bm25Results = bm25Search(question, bm25TopK);
-        
+
         // 合并去重并重排序
-        return mergeAndRerank(vectorResults, bm25Results, safeTopK);
+        List<RetrievalResult> merged = mergeAndRerank(vectorResults, bm25Results, safeTopK);
+        return new HybridSearchResult(merged,
+            vectorResults != null ? vectorResults.size() : 0,
+            bm25Results != null ? bm25Results.size() : 0);
+
     }
     
     /**
@@ -615,21 +655,32 @@ public class RagService {
             log.debug("Embedding 生成完成: request_id={}, dim={}", requestId, queryEmbedding.length);
             
             // 2. 混合检索
-            List<RetrievalResult> results = hybridSearch(request.getQuestion(), queryEmbedding, topK);
-            log.info("检索完成: request_id={}, 检索到 {} 条结果", requestId,
-                results != null ? results.size() : 0);
+            HybridSearchResult hybrid = hybridSearch(request.getQuestion(), queryEmbedding, topK);
+            List<RetrievalResult> results = hybrid.merged;
+            log.info("检索完成: request_id={}, merged={}, vector={}, bm25={}", requestId,
+                results != null ? results.size() : 0, hybrid.vectorCount, hybrid.bm25Count);
 
             // 3. 过滤高相关度文章
             List<RetrievalResult> highRelevanceResults = filterHighRelevanceResults(results, minScore, topK);
-            log.info("相关度过滤: request_id={}, 检索到 {} 条结果, 阈值>={}, 过滤后 {} 条",
+            log.info("相关度过滤: request_id={}, merged={}, 阈值>={}, 过滤后 {} 条",
                 requestId, results != null ? results.size() : 0, minScore, highRelevanceResults.size());
+
 
             // 记录检索阶段指标 + top hits（用于 7 天留存的调参数据）
             if (ragLog != null) {
                 ragLog.setHasArticles(!highRelevanceResults.isEmpty());
                 ragLog.setFilteredCandidates(highRelevanceResults.size());
                 ragLog.setRetrievalMs((int) (System.currentTimeMillis() - retrievalStart));
-                ragLog.setVectorCandidates(results != null ? results.size() : 0);
+                ragLog.setVectorCandidates(hybrid.vectorCount);
+                ragLog.setBm25Candidates(hybrid.bm25Count);
+                // 记录命中的 articleId 列表
+                String hitIds = highRelevanceResults.stream()
+                    .map(RetrievalResult::getArticleId)
+                    .filter(java.util.Objects::nonNull)
+                    .distinct()
+                    .map(String::valueOf)
+                    .collect(java.util.stream.Collectors.joining(","));
+                ragLog.setHitArticleIds(hitIds);
                 ragObservabilityService.upsertQueryLog(ragLog);
 
                 int hitLimit = Math.min(highRelevanceResults.size(), 20);

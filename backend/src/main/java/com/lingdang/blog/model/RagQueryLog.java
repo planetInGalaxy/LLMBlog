@@ -34,6 +34,12 @@ public class RagQueryLog {
     @Column(name = "has_articles")
     private Boolean hasArticles;
 
+    /**
+     * 命中的文章 ID 列表（逗号分隔，便于快速判断召回是否命中预期文章）
+     */
+    @Column(name = "hit_article_ids", length = 500)
+    private String hitArticleIds;
+
     // config snapshot
     @Column(name = "top_k")
     private Integer topK;
