@@ -14,6 +14,7 @@ const DESCRIPTION_LENGTH = 150;
 const STUDIO_AUTH_MESSAGE = '登录已过期，请重新登录';
 const STUDIO_SERVER_ERROR_MESSAGE = '服务器开小差了，请稍后再试';
 const ASSISTANT_REQUEST_TIMEOUT_MS = 60000;
+const CITATION_QUOTE_COLLAPSE_THRESHOLD = 140;
 const APP_VERSION = String(
   import.meta.env.VITE_APP_VERSION
   || (typeof window !== 'undefined' && window.__APP_VERSION__)
@@ -96,6 +97,41 @@ const getArticleDescription = (article) => {
   if (!base) return '铃铛师兄大模型博客文章分享。';
   return base.slice(0, DESCRIPTION_LENGTH);
 };
+
+function CitationItem({ cite, index }) {
+  const quoteText = (cite?.quote || '').trim();
+  const shouldClamp = quoteText.length > CITATION_QUOTE_COLLAPSE_THRESHOLD;
+  const [expanded, setExpanded] = useState(false);
+  const hasScore = typeof cite?.score === 'number' && !Number.isNaN(cite.score);
+
+  return (
+    <div className="citation-card">
+      <span className="citation-ref-index">[{cite.refIndex || (index + 1)}]</span>
+      <a href={cite.url} target="_blank" rel="noopener noreferrer">
+        <strong>{cite.title}</strong>
+      </a>
+      {hasScore && (
+        <span className="citation-score">相关度: {(cite.score * 100).toFixed(0)}%</span>
+      )}
+      {quoteText && (
+        <div className="citation-quote-block">
+          <p className={`citation-quote${shouldClamp && !expanded ? ' is-clamped' : ''}`}>
+            "{quoteText}"
+          </p>
+          {shouldClamp && (
+            <button
+              type="button"
+              className="citation-toggle"
+              onClick={() => setExpanded(prev => !prev)}
+            >
+              {expanded ? '收起' : '展开'}
+            </button>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
 
 // ==================== 主页 ====================
 function HomePage() {
@@ -742,21 +778,18 @@ function AssistantPage() {
                       </div>
                       
                       {msg.citations && msg.citations.length > 0 && (
-                        <div className="citations">
-                          <h4>📚 参考文章：</h4>
-                          {msg.citations.map((cite, i) => (
-                            <div key={i} className="citation-card">
-                              <span className="citation-ref-index">[{cite.refIndex || (i + 1)}]</span>
-                              <a href={cite.url} target="_blank" rel="noopener noreferrer">
-                                <strong>{cite.title}</strong>
-                              </a>
-                              {cite.quote && cite.quote.trim() && (
-                                <p className="citation-quote">"{cite.quote}"</p>
-                              )}
-                              <span className="citation-score">相关度: {(cite.score * 100).toFixed(0)}%</span>
-                            </div>
-                          ))}
-                        </div>
+                        <details className="citations">
+                          <summary>📚 参考文章 ({msg.citations.length})</summary>
+                          <div className="citations-content">
+                            {msg.citations.map((cite, i) => (
+                              <CitationItem
+                                key={cite.chunkId || `${idx}-cite-${i}`}
+                                cite={cite}
+                                index={i}
+                              />
+                            ))}
+                          </div>
+                        </details>
                       )}
                     </>
                   )}
@@ -1007,6 +1040,7 @@ function StudioArticleList() {
         <h1>文章管理</h1>
         <div className="header-actions">
           <button onClick={() => navigate('/studio/articles/new')}>新建文章</button>
+          <button onClick={() => navigate('/studio/settings')} className="btn-info">RAG 配置</button>
           <button 
             onClick={handleReindexAll} 
             disabled={loading}
@@ -1080,6 +1114,167 @@ function StudioArticleList() {
           ))}
         </tbody>
       </table>
+    </div>
+  );
+}
+
+// ==================== Studio RAG 配置 ====================
+function StudioRagSettings() {
+  const [form, setForm] = useState({
+    topK: '5',
+    minScore: '0',
+    chunkSize: '900',
+    returnCitations: true
+  });
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const navigate = useNavigate();
+
+  const fetchConfig = async () => {
+    setLoading(true);
+    const token = localStorage.getItem('token');
+    try {
+      const response = await fetch(`${API_URL}/studio/rag-config`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      const result = await handleStudioWriteResponse(response, navigate);
+      if (!result) return;
+      if (result.success) {
+        const data = result.data || {};
+        setForm({
+          topK: String(data.topK ?? 5),
+          minScore: String(data.minScore ?? 0),
+          chunkSize: String(data.chunkSize ?? 900),
+          returnCitations: data.returnCitations !== false
+        });
+      } else {
+        alert(result.message || '获取配置失败');
+      }
+    } catch (error) {
+      console.error('获取配置失败:', error);
+      alert('获取配置失败，请稍后重试');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchConfig();
+  }, []);
+
+  const parseNumber = (value, fallback) => {
+    if (value === '' || value === null || value === undefined) return fallback;
+    const num = Number(value);
+    return Number.isFinite(num) ? num : fallback;
+  };
+
+  const handleSave = async () => {
+    const topK = parseNumber(form.topK, 5);
+    const minScore = parseNumber(form.minScore, 0);
+
+    if (topK < 1 || topK > 50) {
+      alert('topK 需在 1 ~ 50 之间');
+      return;
+    }
+    if (minScore < 0 || minScore > 1) {
+      alert('minScore 需在 0 ~ 1 之间');
+      return;
+    }
+
+    setSaving(true);
+    const token = localStorage.getItem('token');
+    try {
+      const response = await fetch(`${API_URL}/studio/rag-config`, {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          topK,
+          minScore,
+          returnCitations: !!form.returnCitations
+        })
+      });
+      const result = await handleStudioWriteResponse(response, navigate);
+      if (!result) return;
+      if (result.success) {
+        const data = result.data || {};
+        setForm(prev => ({
+          ...prev,
+          topK: String(data.topK ?? topK),
+          minScore: String(data.minScore ?? minScore),
+          returnCitations: data.returnCitations !== false,
+          chunkSize: String(data.chunkSize ?? prev.chunkSize)
+        }));
+        alert('保存成功！');
+      } else {
+        alert(result.message || '保存失败');
+      }
+    } catch (error) {
+      console.error('保存配置失败:', error);
+      alert('保存失败，请稍后重试');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  if (loading) return <div className="loading">加载中</div>;
+
+  return (
+    <div className="studio-settings">
+      <div className="studio-header">
+        <h1>RAG 配置</h1>
+        <div className="header-actions">
+          <button onClick={() => navigate('/studio/articles')}>返回文章管理</button>
+        </div>
+      </div>
+
+      <div className="settings-card">
+        <div className="form-group">
+          <label>topK</label>
+          <input
+            type="number"
+            min="1"
+            max="50"
+            step="1"
+            value={form.topK}
+            onChange={(e) => setForm(prev => ({ ...prev, topK: e.target.value }))}
+          />
+        </div>
+        <div className="form-group">
+          <label>minScore（0 ~ 1，可选）</label>
+          <input
+            type="number"
+            min="0"
+            max="1"
+            step="0.01"
+            value={form.minScore}
+            onChange={(e) => setForm(prev => ({ ...prev, minScore: e.target.value }))}
+          />
+        </div>
+        <div className="form-group">
+          <label>chunkSize</label>
+          <input type="number" value={form.chunkSize} disabled />
+          <div className="form-hint">需重建索引后生效</div>
+        </div>
+        <div className="form-group form-toggle">
+          <label>
+            <input
+              type="checkbox"
+              checked={!!form.returnCitations}
+              onChange={(e) => setForm(prev => ({ ...prev, returnCitations: e.target.checked }))}
+            />
+            返回引用
+          </label>
+        </div>
+        <div className="form-actions">
+          <button onClick={handleSave} disabled={saving}>
+            {saving ? '保存中…' : '保存配置'}
+          </button>
+          <button onClick={() => navigate('/studio/articles')}>取消</button>
+        </div>
+      </div>
     </div>
   );
 }
@@ -1270,6 +1465,7 @@ function App() {
             <Route path="/assistant" element={<AssistantPage />} />
             <Route path="/studio/login" element={<StudioLogin />} />
             <Route path="/studio/articles" element={<StudioArticleList />} />
+            <Route path="/studio/settings" element={<StudioRagSettings />} />
             <Route path="/studio/articles/new" element={<StudioArticleEdit />} />
             <Route path="/studio/articles/:id/edit" element={<StudioArticleEdit />} />
           </Routes>

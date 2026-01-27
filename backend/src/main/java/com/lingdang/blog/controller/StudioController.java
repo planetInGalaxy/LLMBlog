@@ -2,9 +2,11 @@ package com.lingdang.blog.controller;
 
 import com.lingdang.blog.config.ElasticsearchInitializer;
 import com.lingdang.blog.dto.ApiResponse;
+import com.lingdang.blog.dto.assistant.RagConfigDTO;
 import com.lingdang.blog.dto.article.ArticleDTO;
 import com.lingdang.blog.service.ArticleService;
 import com.lingdang.blog.service.IndexPipelineService;
+import com.lingdang.blog.service.RagConfigService;
 import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
@@ -28,6 +30,9 @@ public class StudioController {
     
     @Autowired
     private ElasticsearchInitializer esInitializer;
+
+    @Autowired
+    private RagConfigService ragConfigService;
     
     /**
      * 获取所有文章（含草稿）
@@ -192,6 +197,29 @@ public class StudioController {
             return ResponseEntity.ok(ApiResponse.success(health));
         } catch (Exception e) {
             return ResponseEntity.ok(ApiResponse.error("检查失败: " + e.getMessage()));
+        }
+    }
+
+    /**
+     * 获取 RAG 配置
+     */
+    @GetMapping("/rag-config")
+    public ResponseEntity<ApiResponse<RagConfigDTO>> getRagConfig() {
+        return ResponseEntity.ok(ApiResponse.success(ragConfigService.getConfig()));
+    }
+
+    /**
+     * 更新 RAG 配置
+     */
+    @PutMapping("/rag-config")
+    public ResponseEntity<ApiResponse<RagConfigDTO>> updateRagConfig(@RequestBody RagConfigDTO request) {
+        try {
+            RagConfigDTO updated = ragConfigService.updateConfig(request);
+            return ResponseEntity.ok(ApiResponse.success("保存成功", updated));
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.ok(ApiResponse.error(e.getMessage()));
+        } catch (Exception e) {
+            return ResponseEntity.ok(ApiResponse.error("保存失败: " + e.getMessage()));
         }
     }
 }
