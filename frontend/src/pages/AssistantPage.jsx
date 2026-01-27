@@ -87,12 +87,16 @@ function AssistantPage() {
     return parts.join('```');
   };
 
-  const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  const scrollToBottom = (behavior = 'auto') => {
+    messagesEndRef.current?.scrollIntoView({ behavior });
   };
 
   useEffect(() => {
-    scrollToBottom();
+    // 流式输出时更新频繁，smooth 会导致桌面端输入框/按钮出现“抖动”观感。
+    // 这里在流式期间使用 auto，结束后再用 smooth。
+    const last = messages[messages.length - 1];
+    const isStreaming = !!last?.streaming;
+    scrollToBottom(isStreaming ? 'auto' : 'smooth');
   }, [messages]);
 
   useEffect(() => {
