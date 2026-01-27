@@ -44,25 +44,46 @@ public class FullReindexService {
     @Autowired
     private ChunkDocumentRepository chunkDocumentRepository;
 
+    public interface ProgressListener {
+        void onProgress(int totalArticles, int doneArticles);
+    }
+
+    public interface NewIndexListener {
+        void onNewIndexCreated(String newIndex);
+    }
+
     public void rebuildAllPublishedToNewIndex(ChunkingOptions options) {
+        rebuildAllPublishedToNewIndex(options, null, null);
+    }
+
+    public void rebuildAllPublishedToNewIndex(ChunkingOptions options, ProgressListener progressListener, NewIndexListener newIndexListener) {"}
         String oldIndex = esInitializer.resolveCurrentIndex();
         String newIndex = null;
 
         try {
             // 1) 创建新索引
             newIndex = esInitializer.createNewConcreteIndex();
+            if (newIndexListener != null) {
+                newIndexListener.onNewIndexCreated(newIndex);
+            }
 
             // 2) 写入新索引
             List<Article> articles = articleRepository.findByStatusOrderByPublishedAtDesc(ArticleStatus.PUBLISHED);
             log.info("开始全量重建索引: articles={}, oldIndex={}, newIndex={}", articles.size(), oldIndex, newIndex);
 
             int totalChunks = 0;
+            int doneArticles = 0;
             for (Article article : articles) {
                 List<ArticleChunk> chunks = chunkService.splitArticle(article, options);
                 totalChunks += chunks.size();
 
                 // 批量生成 embedding + bulk 写 ES
                 bulkIndexChunks(newIndex, chunks);
+
+                doneArticles++;
+                if (progressListener != null) {
+                    progressListener.onProgress(articles.size(), doneArticles);
+                }
             }
 
             log.info("全量重建写入完成: newIndex={}, chunks={}", newIndex, totalChunks);

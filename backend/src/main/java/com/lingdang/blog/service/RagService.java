@@ -12,6 +12,8 @@ import com.lingdang.blog.dto.llm.ChatCompletionRequest;
 import com.lingdang.blog.dto.llm.ChatCompletionResponse;
 import com.lingdang.blog.model.AssistantLog;
 import com.lingdang.blog.model.ChunkDocument;
+import com.lingdang.blog.model.RagQueryHit;
+import com.lingdang.blog.model.RagQueryLog;
 import com.lingdang.blog.repository.AssistantLogRepository;
 import lombok.Data;
 import lombok.extern.slf4j.Slf4j;
@@ -38,6 +40,9 @@ public class RagService {
     
     @Autowired
     private AssistantLogRepository assistantLogRepository;
+
+    @Autowired
+    private RagObservabilityService ragObservabilityService;
 
     @Autowired
     private RagConfigService ragConfigService;
@@ -587,12 +592,20 @@ public class RagService {
     public void queryStream(AssistantRequest request, String clientIp, SseEmitter emitter) {
         String requestId = UUID.randomUUID().toString();
         long startTime = System.currentTimeMillis();
-        
+
+        RagQueryLog ragLog = null;
+        long retrievalStart = System.currentTimeMillis();
+
         try {
             RagConfigDTO ragConfig = ragConfigService.getConfig();
             int topK = ragConfig.getTopK() != null ? ragConfig.getTopK() : 5;
             double minScore = ragConfig.getMinScore() != null ? ragConfig.getMinScore() : 0.0;
             boolean returnCitations = Boolean.TRUE.equals(ragConfig.getReturnCitations());
+
+            // 记录基础日志（后续补齐字段）
+            ragLog = ragObservabilityService.buildBaseLog(requestId, clientIp, request.getQuestion(), ragConfig);
+            ragLog.setSuccess(true);
+            ragObservabilityService.upsertQueryLog(ragLog);
 
             log.info("收到流式查询请求: request_id={}, question={}, mode={}", 
                 requestId, request.getQuestion(), request.getMode());
@@ -603,13 +616,40 @@ public class RagService {
             
             // 2. 混合检索
             List<RetrievalResult> results = hybridSearch(request.getQuestion(), queryEmbedding, topK);
-            log.info("检索完成: request_id={}, 检索到 {} 条结果", requestId, 
+            log.info("检索完成: request_id={}, 检索到 {} 条结果", requestId,
                 results != null ? results.size() : 0);
-            
+
             // 3. 过滤高相关度文章
             List<RetrievalResult> highRelevanceResults = filterHighRelevanceResults(results, minScore, topK);
-            log.info("相关度过滤: request_id={}, 检索到 {} 条结果, 阈值>={}, 过滤后 {} 条", 
+            log.info("相关度过滤: request_id={}, 检索到 {} 条结果, 阈值>={}, 过滤后 {} 条",
                 requestId, results != null ? results.size() : 0, minScore, highRelevanceResults.size());
+
+            // 记录检索阶段指标 + top hits（用于 7 天留存的调参数据）
+            if (ragLog != null) {
+                ragLog.setHasArticles(!highRelevanceResults.isEmpty());
+                ragLog.setFilteredCandidates(highRelevanceResults.size());
+                ragLog.setRetrievalMs((int) (System.currentTimeMillis() - retrievalStart));
+                ragLog.setVectorCandidates(results != null ? results.size() : 0);
+                ragObservabilityService.upsertQueryLog(ragLog);
+
+                int hitLimit = Math.min(highRelevanceResults.size(), 20);
+                List<RagQueryHit> hits = new ArrayList<>();
+                for (int i = 0; i < hitLimit; i++) {
+                    RetrievalResult r = highRelevanceResults.get(i);
+                    RagQueryHit h = new RagQueryHit();
+                    h.setRequestId(requestId);
+                    h.setRankNo(i + 1);
+                    h.setChunkId(r.getChunkId());
+                    h.setArticleId(r.getArticleId());
+                    h.setSlug(r.getSlug());
+                    h.setTitle(r.getTitle());
+                    h.setVectorScore(r.getVectorScore());
+                    h.setBm25Score(r.getBm25Score());
+                    h.setFinalScore(r.getFinalScore());
+                    hits.add(h);
+                }
+                ragObservabilityService.replaceHits(requestId, hits);
+            }
             
             // 4. 判断模式
             boolean hasArticles = !highRelevanceResults.isEmpty();
@@ -663,8 +703,10 @@ public class RagService {
             }
             
             // 7. 发送引用（只有高相关度文章才发送）
+            int citationsCount = 0;
             if (hasArticles && returnCitations) {
                 List<AssistantResponse.Citation> citations = extractCitations(highRelevanceResults);
+                citationsCount = citations.size();
                 log.info("发送引用: request_id={}, 去重后文章数={}", requestId, citations.size());
                 if (!citations.isEmpty()) {
                     emitter.send(SseEmitter.event()
@@ -675,18 +717,34 @@ public class RagService {
                 // 无高相关度文章，也不发送引用
                 log.info("无高相关度文章或关闭引用返回，不发送引用: request_id={}", requestId);
             }
-            
-            // 7. 完成
+
+            // 8. 完成
             long latency = System.currentTimeMillis() - startTime;
             log.info("查询完成: request_id={}, latency={}ms", requestId, latency);
+
+            if (ragLog != null) {
+                ragLog.setCitationsCount(citationsCount);
+                ragLog.setLatencyMs((int) latency);
+                ragLog.setSuccess(true);
+                ragObservabilityService.upsertQueryLog(ragLog);
+            }
+
             emitter.send(SseEmitter.event()
                 .name("done")
                 .data("{\"latencyMs\":" + latency + "}"));
             emitter.complete();
             
         } catch (Exception e) {
-            log.error("RAG 流式查询失败: request_id={}, question={}, error={}", 
+            log.error("RAG 流式查询失败: request_id={}, question={}, error={}",
                 requestId, request.getQuestion(), e.getMessage(), e);
+
+            if (ragLog != null) {
+                ragLog.setSuccess(false);
+                ragLog.setErrorMessage(e.getMessage());
+                ragLog.setLatencyMs((int) (System.currentTimeMillis() - startTime));
+                ragObservabilityService.upsertQueryLog(ragLog);
+            }
+
             try {
                 String errorMsg = e.getMessage() != null ? e.getMessage() : "未知错误";
                 emitter.send(SseEmitter.event()

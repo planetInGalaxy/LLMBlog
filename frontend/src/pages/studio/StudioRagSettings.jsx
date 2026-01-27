@@ -12,19 +12,22 @@ function StudioRagSettings() {
   });
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [latestJob, setLatestJob] = useState(null);
   const navigate = useNavigate();
 
   const fetchConfig = async () => {
     setLoading(true);
     const token = localStorage.getItem('token');
     try {
-      const response = await fetch(`${API_URL}/studio/rag-config`, {
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
-      const result = await handleStudioWriteResponse(response, navigate);
-      if (!result) return;
-      if (isApiSuccess(result)) {
-        const data = result.data || {};
+      const [cfgResp, jobResp] = await Promise.all([
+        fetch(`${API_URL}/studio/rag-config`, { headers: { 'Authorization': `Bearer ${token}` } }),
+        fetch(`${API_URL}/studio/reindex-jobs/latest`, { headers: { 'Authorization': `Bearer ${token}` } })
+      ]);
+
+      const cfgResult = await handleStudioWriteResponse(cfgResp, navigate);
+      if (!cfgResult) return;
+      if (isApiSuccess(cfgResult)) {
+        const data = cfgResult.data || {};
         setForm({
           topK: String(data.topK ?? 5),
           minScore: String(data.minScore ?? 0),
@@ -32,8 +35,14 @@ function StudioRagSettings() {
           returnCitations: data.returnCitations !== false
         });
       } else {
-        alert(result.message || '获取配置失败');
+        alert(cfgResult.message || '获取配置失败');
       }
+
+      const jobResult = await handleStudioWriteResponse(jobResp, navigate);
+      if (jobResult && isApiSuccess(jobResult)) {
+        setLatestJob(jobResult.data || null);
+      }
+
     } catch (error) {
       console.error('获取配置失败:', error);
       alert('获取配置失败，请稍后重试');
@@ -95,9 +104,13 @@ function StudioRagSettings() {
           topK: String(data.topK ?? topK),
           minScore: String(data.minScore ?? minScore),
           returnCitations: data.returnCitations !== false,
-          chunkSize: String(data.chunkSize ?? chunkSize)
+          chunkSize: String(data.chunkSize ?? prev.chunkSize)
         }));
-        alert('保存成功！');
+
+        // 刷新一次任务状态（如果 chunkSize 触发了异步重建）
+        await fetchConfig();
+
+        alert(result.message || '保存成功！');
       } else {
         alert(result.message || '保存失败');
       }
@@ -117,10 +130,21 @@ function StudioRagSettings() {
         <h1>RAG 配置</h1>
         <div className="header-actions">
           <button onClick={() => navigate('/studio/articles')}>返回文章管理</button>
+          <button onClick={() => navigate('/studio/rag-logs')}>查看RAG日志</button>
         </div>
       </div>
 
       <div className="settings-card">
+        {latestJob && (
+          <div className="form-group">
+            <label>索引重建任务</label>
+            <div className="form-hint">
+              状态：{latestJob.status || '-'}，进度：{latestJob.doneArticles ?? 0}/{latestJob.totalArticles ?? 0}
+              {latestJob.requestedChunkSize ? `，requestedChunkSize=${latestJob.requestedChunkSize}` : ''}
+              {latestJob.errorMessage ? `，error=${latestJob.errorMessage}` : ''}
+            </div>
+          </div>
+        )}
         <div className="form-group">
           <label>topK</label>
           <input

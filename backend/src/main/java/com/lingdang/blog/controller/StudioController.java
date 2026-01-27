@@ -6,7 +6,13 @@ import com.lingdang.blog.dto.assistant.RagConfigDTO;
 import com.lingdang.blog.dto.article.ArticleDTO;
 import com.lingdang.blog.service.ArticleService;
 import com.lingdang.blog.service.IndexPipelineService;
+import com.lingdang.blog.model.RagQueryHit;
+import com.lingdang.blog.model.RagQueryLog;
+import com.lingdang.blog.model.RagReindexJob;
 import com.lingdang.blog.service.RagConfigService;
+import com.lingdang.blog.service.RagReindexJobService;
+import com.lingdang.blog.repository.RagQueryHitRepository;
+import com.lingdang.blog.repository.RagQueryLogRepository;
 import jakarta.validation.Valid;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -35,6 +41,15 @@ public class StudioController {
 
     @Autowired
     private RagConfigService ragConfigService;
+
+    @Autowired
+    private RagReindexJobService ragReindexJobService;
+
+    @Autowired
+    private RagQueryLogRepository ragQueryLogRepository;
+
+    @Autowired
+    private RagQueryHitRepository ragQueryHitRepository;
     
     /**
      * 获取所有文章（含草稿）
@@ -204,6 +219,47 @@ public class StudioController {
         } catch (Exception e) {
             return ResponseEntity.ok(ApiResponse.error("检查失败: " + e.getMessage()));
         }
+    }
+
+    /**
+     * 最近一次重建索引任务
+     */
+    @GetMapping("/reindex-jobs/latest")
+    public ResponseEntity<ApiResponse<RagReindexJob>> latestReindexJob() {
+        return ResponseEntity.ok(ApiResponse.success(ragReindexJobService.getLatestJob()));
+    }
+
+    /**
+     * 最近 7 天重建索引任务列表
+     */
+    @GetMapping("/reindex-jobs")
+    public ResponseEntity<ApiResponse<List<RagReindexJob>>> listReindexJobs() {
+        return ResponseEntity.ok(ApiResponse.success(ragReindexJobService.listRecentJobs()));
+    }
+
+    /**
+     * 最近 7 天 RAG 查询日志
+     */
+    @GetMapping("/rag-logs")
+    public ResponseEntity<ApiResponse<List<RagQueryLog>>> listRagLogs() {
+        return ResponseEntity.ok(ApiResponse.success(
+            ragQueryLogRepository.findByCreatedAtAfterOrderByCreatedAtDesc(
+                java.time.LocalDateTime.now().minusDays(7)
+            )
+        ));
+    }
+
+    /**
+     * RAG 查询详情（含命中 chunks）
+     */
+    @GetMapping("/rag-logs/{requestId}")
+    public ResponseEntity<ApiResponse<java.util.Map<String, Object>>> ragLogDetail(@PathVariable String requestId) {
+        RagQueryLog log = ragQueryLogRepository.findByRequestId(requestId).orElse(null);
+        List<RagQueryHit> hits = ragQueryHitRepository.findByRequestIdOrderByRankNoAsc(requestId);
+        java.util.Map<String, Object> data = new java.util.HashMap<>();
+        data.put("log", log);
+        data.put("hits", hits);
+        return ResponseEntity.ok(ApiResponse.success(data));
     }
 
     /**

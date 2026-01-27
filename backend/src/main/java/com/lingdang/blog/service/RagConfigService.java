@@ -2,6 +2,7 @@ package com.lingdang.blog.service;
 
 import com.lingdang.blog.dto.assistant.RagConfigDTO;
 import com.lingdang.blog.model.RagConfig;
+import com.lingdang.blog.model.RagReindexJob;
 import com.lingdang.blog.repository.RagConfigRepository;
 import jakarta.annotation.PostConstruct;
 import lombok.extern.slf4j.Slf4j;
@@ -81,7 +82,7 @@ public class RagConfigService {
     }
 
     @Autowired
-    private FullReindexService fullReindexService;
+    private RagReindexJobService ragReindexJobService;
 
     /**
      * 更新 RAG 配置：
@@ -113,27 +114,23 @@ public class RagConfigService {
             if (update.getMinScore() != null) next.setMinScore(update.getMinScore());
             if (update.getReturnCitations() != null) next.setReturnCitations(update.getReturnCitations());
 
-            // 2) 如果 chunkSize 要变：先用“新 chunk 参数”尝试全量重建索引。
+            // 2) 如果 chunkSize 要变：提交异步重建任务（成功后再落库 chunkSize）
             if (chunkSizeChanged) {
                 int newChunkSize = update.getChunkSize();
-                ChunkingOptions options = ChunkingOptions.of(
-                    Math.max(200, (int) Math.round(newChunkSize * 0.67)),
-                    newChunkSize,
-                    Math.min(200, Math.max(0, (int) Math.round(newChunkSize * 0.10)))
-                );
+                RagConfigDTO requested = copy(next);
+                requested.setChunkSize(newChunkSize);
 
-                log.info("检测到 chunkSize 变更，将自动触发全量重建索引: {} -> {}", before.getChunkSize(), newChunkSize);
-                // 这里是关键：先重建成功，再落库
-                fullReindexService.rebuildAllPublishedToNewIndex(options);
+                log.info("检测到 chunkSize 变更，将提交异步全量重建索引任务: {} -> {}", before.getChunkSize(), newChunkSize);
+                RagReindexJob job = ragReindexJobService.submitChunkSizeReindex(requested);
+                log.info("已提交重建任务: job_id={}, requested_chunk_size={}", job.getId(), newChunkSize);
 
-                next.setChunkSize(newChunkSize);
+                // 注意：此处不更新 entity.chunkSize，等待任务 SUCCESS 后再落库
             }
 
-            // 3) 落库 + 更新缓存
+            // 3) 立即生效参数可直接落库 + 更新缓存
             entity.setTopK(next.getTopK());
             entity.setMinScore(next.getMinScore());
             entity.setReturnCitations(next.getReturnCitations());
-            entity.setChunkSize(next.getChunkSize());
 
             RagConfig saved = ragConfigRepository.save(entity);
             current = toDTO(saved);

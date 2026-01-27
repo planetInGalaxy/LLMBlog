@@ -10,6 +10,8 @@ import StudioLogin from './pages/studio/StudioLogin';
 import StudioArticleList from './pages/studio/StudioArticleList';
 import StudioArticleEdit from './pages/studio/StudioArticleEdit';
 import StudioRagSettings from './pages/studio/StudioRagSettings';
+import StudioRagLogs from './pages/studio/StudioRagLogs';
+import StudioRagLogDetail from './pages/studio/StudioRagLogDetail';
 import './App.css';
 
 function App() {
@@ -52,6 +54,8 @@ function App() {
             <Route path="/studio/login" element={<StudioLogin />} />
             <Route path="/studio/articles" element={<StudioArticleList />} />
             <Route path="/studio/settings" element={<StudioRagSettings />} />
+            <Route path="/studio/rag-logs" element={<StudioRagLogs />} />
+            <Route path="/studio/rag-logs/:requestId" element={<StudioRagLogDetail />} />
             <Route path="/studio/articles/new" element={<StudioArticleEdit />} />
             <Route path="/studio/articles/:id/edit" element={<StudioArticleEdit />} />
           </Routes>
