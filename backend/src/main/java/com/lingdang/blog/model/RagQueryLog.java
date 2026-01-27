@@ -59,6 +59,9 @@ public class RagQueryLog {
     @Column(name = "bm25_weight")
     private Integer bm25Weight;
 
+    @Column(name = "bm25_max")
+    private Double bm25Max;
+
     // metrics
     @Column(name = "vector_candidates")
     private Integer vectorCandidates;

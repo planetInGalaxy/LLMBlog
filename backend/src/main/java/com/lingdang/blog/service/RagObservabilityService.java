@@ -55,6 +55,7 @@ public class RagObservabilityService {
             l.setReturnCitations(cfg.getReturnCitations());
             l.setVectorWeight(cfg.getVectorWeight());
             l.setBm25Weight(cfg.getBm25Weight());
+            l.setBm25Max(cfg.getBm25Max());
         }
         return l;
     }

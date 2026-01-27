@@ -29,6 +29,7 @@ public class RagConfigService {
     private static final boolean DEFAULT_RETURN_CITATIONS = true;
     private static final int DEFAULT_VECTOR_WEIGHT = 70;
     private static final int DEFAULT_BM25_WEIGHT = 30;
+    private static final double DEFAULT_BM25_MAX = 15.0;
 
     @Autowired
     private RagConfigRepository ragConfigRepository;
@@ -78,6 +79,15 @@ public class RagConfigService {
             if (update.getReturnCitations() != null) {
                 entity.setReturnCitations(update.getReturnCitations());
             }
+            if (update.getVectorWeight() != null) {
+                entity.setVectorWeight(update.getVectorWeight());
+            }
+            if (update.getBm25Weight() != null) {
+                entity.setBm25Weight(update.getBm25Weight());
+            }
+            if (update.getBm25Max() != null) {
+                entity.setBm25Max(update.getBm25Max());
+            }
 
             if (update.getChunkSize() != null) {
                 entity.setChunkSize(update.getChunkSize());
@@ -122,6 +132,7 @@ public class RagConfigService {
             if (update.getReturnCitations() != null) next.setReturnCitations(update.getReturnCitations());
             if (update.getVectorWeight() != null) next.setVectorWeight(update.getVectorWeight());
             if (update.getBm25Weight() != null) next.setBm25Weight(update.getBm25Weight());
+            if (update.getBm25Max() != null) next.setBm25Max(update.getBm25Max());
 
             // 2) chunkSize 是否变化由 Controller 决定是否提交异步重建任务。
             //    这里不再依赖 RagReindexJobService，避免循环依赖。
@@ -132,6 +143,7 @@ public class RagConfigService {
             entity.setReturnCitations(next.getReturnCitations());
             entity.setVectorWeight(next.getVectorWeight());
             entity.setBm25Weight(next.getBm25Weight());
+            entity.setBm25Max(next.getBm25Max());
 
             RagConfig saved = ragConfigRepository.save(entity);
             current = toDTO(saved);
@@ -172,6 +184,13 @@ public class RagConfigService {
                 throw new IllegalArgumentException("vectorWeight + bm25Weight 必须等于 100");
             }
         }
+
+        if (update.getBm25Max() != null) {
+            double bm25Max = update.getBm25Max();
+            if (bm25Max <= 0 || bm25Max > 1000) {
+                throw new IllegalArgumentException("bm25Max 需在 (0, 1000] 之间");
+            }
+        }
     }
 
     private RagConfig ensureEntity() {
@@ -188,6 +207,7 @@ public class RagConfigService {
         created.setReturnCitations(DEFAULT_RETURN_CITATIONS);
         created.setVectorWeight(DEFAULT_VECTOR_WEIGHT);
         created.setBm25Weight(DEFAULT_BM25_WEIGHT);
+        created.setBm25Max(DEFAULT_BM25_MAX);
 
         return ragConfigRepository.save(created);
     }
@@ -201,6 +221,7 @@ public class RagConfigService {
 
         Integer vectorW = entity.getVectorWeight();
         Integer bm25W = entity.getBm25Weight();
+        Double bm25Max = entity.getBm25Max();
         if (vectorW == null && bm25W == null) {
             vectorW = DEFAULT_VECTOR_WEIGHT;
             bm25W = DEFAULT_BM25_WEIGHT;
@@ -211,6 +232,7 @@ public class RagConfigService {
         }
         dto.setVectorWeight(vectorW);
         dto.setBm25Weight(bm25W);
+        dto.setBm25Max(bm25Max != null ? bm25Max : DEFAULT_BM25_MAX);
 
         return dto;
     }
@@ -238,6 +260,7 @@ public class RagConfigService {
         copy.setReturnCitations(source.getReturnCitations());
         copy.setVectorWeight(source.getVectorWeight());
         copy.setBm25Weight(source.getBm25Weight());
+        copy.setBm25Max(source.getBm25Max());
         return copy;
     }
 }

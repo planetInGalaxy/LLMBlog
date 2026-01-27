@@ -50,6 +50,12 @@ public class RagConfig {
     @Column(name = "bm25_weight")
     private Integer bm25Weight;
 
+    /**
+     * BM25 归一化上限（建议取 bm25 的 P95/P99）。
+     */
+    @Column(name = "bm25_max")
+    private Double bm25Max;
+
     @CreationTimestamp
     @Column(name = "created_at", updatable = false)
     private LocalDateTime createdAt;

@@ -300,12 +300,13 @@ public class StudioController {
     @PutMapping("/rag-config")
     public ResponseEntity<ApiResponse<RagConfigDTO>> updateRagConfig(@RequestBody RagConfigDTO request) {
         try {
-            log.info("收到 rag-config 更新请求: topK={}, minScore={}, chunkSize={}, vectorWeight={}, bm25Weight={}, returnCitations={}",
+            log.info("收到 rag-config 更新请求: topK={}, minScore={}, chunkSize={}, vectorWeight={}, bm25Weight={}, bm25Max={}, returnCitations={}",
                 request != null ? request.getTopK() : null,
                 request != null ? request.getMinScore() : null,
                 request != null ? request.getChunkSize() : null,
                 request != null ? request.getVectorWeight() : null,
                 request != null ? request.getBm25Weight() : null,
+                request != null ? request.getBm25Max() : null,
                 request != null ? request.getReturnCitations() : null);
 
             // 先读取当前配置，判断 chunkSize 是否变化
@@ -323,6 +324,7 @@ public class StudioController {
                 tmp.setReturnCitations(safeRequest.getReturnCitations());
                 tmp.setVectorWeight(safeRequest.getVectorWeight());
                 tmp.setBm25Weight(safeRequest.getBm25Weight());
+                tmp.setBm25Max(safeRequest.getBm25Max());
                 // 注意：chunkSize 不在这里落库，等待异步重建成功后由任务落库
                 safeRequest = tmp;
             }
@@ -336,6 +338,7 @@ public class StudioController {
                 requested.setReturnCitations(updated.getReturnCitations());
                 requested.setVectorWeight(updated.getVectorWeight());
                 requested.setBm25Weight(updated.getBm25Weight());
+                requested.setBm25Max(updated.getBm25Max());
                 requested.setChunkSize(request.getChunkSize());
 
                 RagReindexJob job = ragReindexJobService.submitChunkSizeReindex(requested);
@@ -346,9 +349,9 @@ public class StudioController {
                 return ResponseEntity.ok(ApiResponse.success("已提交重建索引任务，chunkSize 将在任务成功后生效", updated));
             }
 
-            log.info("rag-config 更新完成: topK={}, minScore={}, chunkSize={}, vectorWeight={}, bm25Weight={}, returnCitations={}",
+            log.info("rag-config 更新完成: topK={}, minScore={}, chunkSize={}, vectorWeight={}, bm25Weight={}, bm25Max={}, returnCitations={}",
                 updated.getTopK(), updated.getMinScore(), updated.getChunkSize(),
-                updated.getVectorWeight(), updated.getBm25Weight(), updated.getReturnCitations());
+                updated.getVectorWeight(), updated.getBm25Weight(), updated.getBm25Max(), updated.getReturnCitations());
             return ResponseEntity.ok(ApiResponse.success("保存成功", updated));
         } catch (IllegalArgumentException e) {
             log.warn("rag-config 更新参数错误: {}", e.getMessage());

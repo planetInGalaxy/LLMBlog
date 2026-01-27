@@ -279,6 +279,7 @@ public class RagService {
         RagConfigDTO cfg = ragConfigService.getConfig();
         int vectorWeight = cfg.getVectorWeight() != null ? cfg.getVectorWeight() : 70;
         int bm25Weight = cfg.getBm25Weight() != null ? cfg.getBm25Weight() : 30;
+        double bm25Max = cfg.getBm25Max() != null ? cfg.getBm25Max() : 15.0;
         // 兜底：保证和为 100
         if (vectorWeight + bm25Weight != 100) {
             vectorWeight = 70;
@@ -286,7 +287,7 @@ public class RagService {
         }
 
         // 合并去重并重排序
-        List<RetrievalResult> merged = mergeAndRerank(vectorResults, bm25Results, safeTopK, vectorWeight, bm25Weight);
+        List<RetrievalResult> merged = mergeAndRerank(vectorResults, bm25Results, safeTopK, vectorWeight, bm25Weight, bm25Max);
         return new HybridSearchResult(merged,
             vectorResults != null ? vectorResults.size() : 0,
             bm25Results != null ? bm25Results.size() : 0);
@@ -436,7 +437,8 @@ public class RagService {
                                                    List<RetrievalResult> bm25Results, 
                                                    int topK,
                                                    int vectorWeight,
-                                                   int bm25Weight) {
+                                                   int bm25Weight,
+                                                   double bm25Max) {
         Map<String, RetrievalResult> merged = new HashMap<>();
         
         // 合并向量结果
@@ -453,27 +455,27 @@ public class RagService {
             }
         }
         
-        // 找出最大分数用于归一化
-        double maxVectorScore = merged.values().stream()
-            .mapToDouble(RetrievalResult::getVectorScore)
-            .max()
-            .orElse(1.0);
-        
-        double maxBm25Score = merged.values().stream()
-            .mapToDouble(RetrievalResult::getBm25Score)
-            .max()
-            .orElse(1.0);
-        
         // 归一化并重排序：vectorWeight + bm25Weight = 100
+        // - vec: 认为本身就在 0~1
+        // - bm25: 使用 log(1+bm25) / log(1+bm25Max) 做固定标尺归一化到 0~1
         // 最终分数范围：0.0 ~ 1.0
         final double vw = Math.max(0, Math.min(100, vectorWeight)) / 100.0;
         final double bw = Math.max(0, Math.min(100, bm25Weight)) / 100.0;
+        final double denom = Math.log1p(Math.max(1e-9, bm25Max));
 
         return merged.values().stream()
             .peek(r -> {
-                double normalizedVector = maxVectorScore > 0 ? r.getVectorScore() / maxVectorScore : 0.0;
-                double normalizedBm25 = maxBm25Score > 0 ? r.getBm25Score() / maxBm25Score : 0.0;
-                double finalScore = vw * normalizedVector + bw * normalizedBm25;
+                double vec = r.getVectorScore();
+                if (Double.isNaN(vec) || vec < 0) vec = 0.0;
+                if (vec > 1) vec = 1.0;
+
+                double bm25 = r.getBm25Score();
+                if (Double.isNaN(bm25) || bm25 < 0) bm25 = 0.0;
+                double bm25Norm = denom > 0 ? (Math.log1p(bm25) / denom) : 0.0;
+                if (bm25Norm < 0) bm25Norm = 0.0;
+                if (bm25Norm > 1) bm25Norm = 1.0;
+
+                double finalScore = vw * vec + bw * bm25Norm;
                 r.setFinalScore(finalScore);
             })
             .sorted((a, b) -> Double.compare(b.getFinalScore(), a.getFinalScore()))

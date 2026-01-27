@@ -9,7 +9,8 @@ function StudioRagSettings() {
     minScore: '0',
     chunkSize: '900',
     returnCitations: true,
-    vectorWeight: '70'
+    vectorWeight: '70',
+    bm25Max: '15'
   });
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -34,7 +35,8 @@ function StudioRagSettings() {
           minScore: String(data.minScore ?? 0),
           chunkSize: String(data.chunkSize ?? 900),
           returnCitations: data.returnCitations !== false,
-          vectorWeight: String(data.vectorWeight ?? 70)
+          vectorWeight: String(data.vectorWeight ?? 70),
+          bm25Max: String(data.bm25Max ?? 15)
         });
       } else {
         alert(cfgResult.message || '获取配置失败');
@@ -69,6 +71,7 @@ function StudioRagSettings() {
     const chunkSize = parseNumber(form.chunkSize, 900);
     const vectorWeight = parseNumber(form.vectorWeight, 70);
     const bm25Weight = 100 - vectorWeight;
+    const bm25Max = parseNumber(form.bm25Max, 15);
 
     if (topK < 1 || topK > 50) {
       alert('topK 需在 1 ~ 50 之间');
@@ -84,6 +87,10 @@ function StudioRagSettings() {
     }
     if (vectorWeight < 0 || vectorWeight > 100) {
       alert('向量/BM25 权重需在 0 ~ 100 之间');
+      return;
+    }
+    if (bm25Max <= 0 || bm25Max > 1000) {
+      alert('bm25Max 需在 (0, 1000] 之间');
       return;
     }
 
@@ -102,6 +109,7 @@ function StudioRagSettings() {
           chunkSize,
           vectorWeight,
           bm25Weight,
+          bm25Max,
           returnCitations: !!form.returnCitations
         })
       });
@@ -115,7 +123,8 @@ function StudioRagSettings() {
           minScore: String(data.minScore ?? minScore),
           returnCitations: data.returnCitations !== false,
           chunkSize: String(data.chunkSize ?? prev.chunkSize),
-          vectorWeight: String(data.vectorWeight ?? vectorWeight)
+          vectorWeight: String(data.vectorWeight ?? vectorWeight),
+          bm25Max: String(data.bm25Max ?? bm25Max)
         }));
 
         // 刷新一次任务状态（如果 chunkSize 触发了异步重建）
@@ -193,6 +202,20 @@ function StudioRagSettings() {
           <div className="form-hint">
             相似度：{form.vectorWeight}% ，BM25：{100 - Number(form.vectorWeight || 0)}%
           </div>
+        </div>
+
+        <div className="form-group">
+          <label>bm25Max（log 归一化上限）</label>
+          <input
+            type="number"
+            min="0"
+            max="1000"
+            step="0.1"
+            value={form.bm25Max}
+            onChange={(e) => setForm(prev => ({ ...prev, bm25Max: e.target.value }))}
+            disabled={saving}
+          />
+          <div className="form-hint">BM25 归一化：log(1+bm25) / log(1+bm25Max)，结果会被 clamp 到 0~1。</div>
         </div>
         <div className="form-group">
           <label>

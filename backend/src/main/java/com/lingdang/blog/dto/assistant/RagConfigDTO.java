@@ -36,4 +36,9 @@ public class RagConfigDTO {
      * 混合检索权重：BM25 权重（0~100）
      */
     private Integer bm25Weight;
+
+    /**
+     * BM25 归一化上限（用于 log(1+bm25) 归一化到 0~1）
+     */
+    private Double bm25Max;
 }
