@@ -385,7 +385,8 @@ function AssistantPage() {
             <div className="example-questions">
               <p><strong>示例问题：</strong></p>
               <button onClick={() => { setInput('文章主要讲了哪些内容？'); }}>文章主要讲了哪些内容？</button>
-              <button onClick={() => { setInput('有哪些关键技术点？'); }}>有哪些关键技术点？</button>
+              <button onClick={() => { setInput('大模型有哪些关键技术点？'); }}>大模型有哪些关键技术点？</button>
+              <button onClick={() => { setInput('后端/前端可以转型大模型开发吗？'); }}>后端/前端可以转型大模型开发吗？</button>
             </div>
           </div>
         )}
