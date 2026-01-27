@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Link, useLocation, useParams } from 'react-router-dom';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
@@ -13,10 +13,13 @@ function BlogDetailPage() {
   const [article, setArticle] = useState(null);
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
+  const [articles, setArticles] = useState([]);
+  const [showBackToTop, setShowBackToTop] = useState(false);
   const location = useLocation();
 
   useEffect(() => {
     fetchArticle();
+    fetchArticles();
   }, [slug]);
 
   useEffect(() => {
@@ -38,6 +41,46 @@ function BlogDetailPage() {
       url
     });
   }, [article, notFound, location.pathname]);
+
+  useEffect(() => {
+    const onScroll = () => {
+      setShowBackToTop(window.scrollY > 480);
+    };
+    onScroll();
+    window.addEventListener('scroll', onScroll, { passive: true });
+    return () => window.removeEventListener('scroll', onScroll);
+  }, []);
+
+  const { prevArticle, nextArticle } = useMemo(() => {
+    if (!article || !Array.isArray(articles) || articles.length === 0) {
+      return { prevArticle: null, nextArticle: null };
+    }
+    // /api/articles 当前返回的列表是按发布时间倒序（最新在前）
+    const idx = articles.findIndex(a => String(a.slug) === String(article.slug));
+    if (idx < 0) return { prevArticle: null, nextArticle: null };
+
+    const newer = idx > 0 ? articles[idx - 1] : null;
+    const older = idx < articles.length - 1 ? articles[idx + 1] : null;
+
+    // 约定：上一条 = 列表中的上一条（通常是更新更近/更新更“新”）；下一条 = 更新更早
+    return { prevArticle: newer, nextArticle: older };
+  }, [article, articles]);
+
+  const scrollToTop = () => {
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const fetchArticles = async () => {
+    try {
+      const response = await fetch(`${API_URL}/articles`);
+      const result = await response.json();
+      if (isApiSuccess(result) && Array.isArray(result.data)) {
+        setArticles(result.data);
+      }
+    } catch (error) {
+      console.warn('获取文章列表失败（用于上一篇/下一篇）:', error);
+    }
+  };
 
   const fetchArticle = async () => {
     try {
@@ -123,7 +166,45 @@ function BlogDetailPage() {
             {article.contentMarkdown}
           </ReactMarkdown>
         </div>
+
+        <footer className="article-footer">
+          <div className="article-actions">
+            <Link to="/blog" className="article-action-link">← 返回文章列表</Link>
+          </div>
+
+          {(prevArticle || nextArticle) && (
+            <nav className="article-nav" aria-label="上一篇/下一篇">
+              {prevArticle ? (
+                <Link className="article-nav-card" to={`/blog/${prevArticle.slug}`}>
+                  <div className="article-nav-label">上一篇</div>
+                  <div className="article-nav-title">{prevArticle.title}</div>
+                </Link>
+              ) : (
+                <div className="article-nav-card article-nav-card--empty" />
+              )}
+
+              {nextArticle ? (
+                <Link className="article-nav-card" to={`/blog/${nextArticle.slug}`}>
+                  <div className="article-nav-label">下一篇</div>
+                  <div className="article-nav-title">{nextArticle.title}</div>
+                </Link>
+              ) : (
+                <div className="article-nav-card article-nav-card--empty" />
+              )}
+            </nav>
+          )}
+        </footer>
       </article>
+
+      <button
+        type="button"
+        className={`back-to-top ${showBackToTop ? 'back-to-top--visible' : ''}`}
+        onClick={scrollToTop}
+        aria-label="返回顶部"
+        title="返回顶部"
+      >
+        ↑
+      </button>
     </div>
   );
 }
