@@ -30,7 +30,7 @@ function HomePage() {
             <h3>🎯 内容覆盖</h3>
             <p>
               在这里，您可以找到关于<strong>大语言模型（LLM）</strong>、<strong>生成式AI</strong>、
-              <strong>自然语言处理（NLP）</strong>、<strong>计算机视觉</strong>、<strong>深度学习</strong>等领域的深度文章和技术教程。
+              <strong>自然语言处理</strong>、<strong>RAG</strong>、<strong>Agent</strong>等领域的深度文章和技术教程。
               我们不仅关注理论研究，更注重实际应用和工程实践。
             </p>
           </div>
