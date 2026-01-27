@@ -196,7 +196,7 @@ public class ElasticsearchInitializer {
         String indexName = INDEX_PREFIX + System.currentTimeMillis();
 
         // settings
-        String settingsJson = null;
+        final String settingsJson;
         try (InputStream is = new ClassPathResource("elasticsearch/chunk-settings.json").getInputStream()) {
             settingsJson = new String(is.readAllBytes(), StandardCharsets.UTF_8);
         }
