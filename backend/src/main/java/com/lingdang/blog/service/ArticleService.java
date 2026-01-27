@@ -7,12 +7,17 @@ import com.lingdang.blog.repository.ArticleRepository;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 /**
@@ -22,7 +27,17 @@ import java.util.stream.Collectors;
 @Service
 @Transactional
 public class ArticleService {
-    
+
+    private static final int DEFAULT_PAGE_SIZE = 20;
+    private static final Set<String> ALLOWED_SORT_FIELDS = Set.of(
+        "updatedAt",
+        "publishedAt",
+        "createdAt",
+        "title",
+        "viewCount",
+        "id"
+    );
+
     @Autowired
     private ArticleRepository articleRepository;
     
@@ -35,6 +50,21 @@ public class ArticleService {
         );
         return articles.stream().map(this::convertToDTO).collect(Collectors.toList());
     }
+
+    /**
+     * 获取所有文章（包含草稿）- 支持分页/排序
+     */
+    public List<ArticleDTO> getAllArticles(Integer page, Integer pageSize, String sortBy, String sortOrder) {
+        if (page == null && pageSize == null && sortBy == null && sortOrder == null) {
+            return getAllArticles();
+        }
+        Pageable pageable = buildPageable(page, pageSize, sortBy, sortOrder, "updatedAt");
+        Page<Article> pageResult = articleRepository.findByStatusIn(
+            List.of(ArticleStatus.DRAFT, ArticleStatus.PUBLISHED, ArticleStatus.OFFLINE),
+            pageable
+        );
+        return pageResult.getContent().stream().map(this::convertToDTO).collect(Collectors.toList());
+    }
     
     /**
      * 获取已发布文章
@@ -42,6 +72,18 @@ public class ArticleService {
     public List<ArticleDTO> getPublishedArticles() {
         List<Article> articles = articleRepository.findByStatusOrderByPublishedAtDesc(ArticleStatus.PUBLISHED);
         return articles.stream().map(this::convertToDTO).collect(Collectors.toList());
+    }
+
+    /**
+     * 获取已发布文章 - 支持分页/排序
+     */
+    public List<ArticleDTO> getPublishedArticles(Integer page, Integer pageSize, String sortBy, String sortOrder) {
+        if (page == null && pageSize == null && sortBy == null && sortOrder == null) {
+            return getPublishedArticles();
+        }
+        Pageable pageable = buildPageable(page, pageSize, sortBy, sortOrder, "publishedAt");
+        Page<Article> pageResult = articleRepository.findByStatus(ArticleStatus.PUBLISHED, pageable);
+        return pageResult.getContent().stream().map(this::convertToDTO).collect(Collectors.toList());
     }
     
     /**
@@ -176,6 +218,14 @@ public class ArticleService {
             ArticleStatus.PUBLISHED, keyword
         );
         return articles.stream().map(this::convertToDTO).collect(Collectors.toList());
+    }
+
+    private Pageable buildPageable(Integer page, Integer pageSize, String sortBy, String sortOrder, String defaultSortBy) {
+        int resolvedPage = (page == null || page < 1) ? 1 : page;
+        int resolvedPageSize = (pageSize == null || pageSize < 1) ? DEFAULT_PAGE_SIZE : pageSize;
+        String resolvedSortBy = (sortBy != null && ALLOWED_SORT_FIELDS.contains(sortBy)) ? sortBy : defaultSortBy;
+        Sort.Direction direction = "asc".equalsIgnoreCase(sortOrder) ? Sort.Direction.ASC : Sort.Direction.DESC;
+        return PageRequest.of(resolvedPage - 1, resolvedPageSize, Sort.by(direction, resolvedSortBy));
     }
     
     /**

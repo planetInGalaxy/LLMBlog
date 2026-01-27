@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { API_URL } from '../../lib/api';
+import { API_URL, isApiSuccess } from '../../lib/api';
 import { handleStudioWriteResponse } from '../../lib/studioApi';
 
 function StudioRagSettings() {
@@ -23,7 +23,7 @@ function StudioRagSettings() {
       });
       const result = await handleStudioWriteResponse(response, navigate);
       if (!result) return;
-      if (result.success) {
+      if (isApiSuccess(result)) {
         const data = result.data || {};
         setForm({
           topK: String(data.topK ?? 5),
@@ -82,7 +82,7 @@ function StudioRagSettings() {
       });
       const result = await handleStudioWriteResponse(response, navigate);
       if (!result) return;
-      if (result.success) {
+      if (isApiSuccess(result)) {
         const data = result.data || {};
         setForm(prev => ({
           ...prev,

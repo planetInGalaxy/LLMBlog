@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { API_URL } from '../../lib/api';
+import { API_URL, isApiSuccess } from '../../lib/api';
 
 function StudioLogin() {
   const [username, setUsername] = useState('');
@@ -20,7 +20,7 @@ function StudioLogin() {
       });
       const result = await response.json();
 
-      if (result.success) {
+      if (isApiSuccess(result)) {
         localStorage.setItem('token', result.data.token);
         localStorage.setItem('username', result.data.username);
         navigate('/studio/articles');

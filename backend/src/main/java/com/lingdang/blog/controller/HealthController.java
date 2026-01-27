@@ -1,7 +1,9 @@
 package com.lingdang.blog.controller;
 
+import com.lingdang.blog.config.ElasticsearchInitializer;
+import com.lingdang.blog.dto.ApiResponse;
+import lombok.Data;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.data.elasticsearch.client.elc.ElasticsearchTemplate;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -9,8 +11,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 import javax.sql.DataSource;
 import java.sql.Connection;
-import java.util.HashMap;
-import java.util.Map;
+import java.time.Instant;
 
 /**
  * 健康检查 Controller
@@ -21,35 +22,55 @@ public class HealthController {
     
     @Autowired
     private DataSource dataSource;
-    
-    @Autowired(required = false)
-    private ElasticsearchTemplate elasticsearchTemplate;
-    
+
+    @Autowired
+    private ElasticsearchInitializer esInitializer;
+
     @GetMapping
-    public ResponseEntity<Map<String, Object>> health() {
-        Map<String, Object> health = new HashMap<>();
-        health.put("status", "UP");
-        health.put("service", "lingdang-blog-backend");
-        
-        // 检查数据库连接
+    public ResponseEntity<ApiResponse<HealthStatus>> health() {
+        HealthStatus health = new HealthStatus();
+        health.setStatus("UP");
+        health.setService("lingdang-blog-backend");
+        health.setAlive(true);
+        health.setTimestamp(Instant.now().toString());
+
+        DatabaseHealth database = new DatabaseHealth();
         try (Connection conn = dataSource.getConnection()) {
-            health.put("database", "UP");
+            database.setConnected(true);
+            database.setMessage("OK");
         } catch (Exception e) {
-            health.put("database", "DOWN: " + e.getMessage());
+            database.setConnected(false);
+            database.setMessage(e.getMessage());
         }
-        
-        // 检查 ES 连接
-        if (elasticsearchTemplate != null) {
-            try {
-                // 简单检查（不执行实际操作，避免索引不存在时报错）
-                health.put("elasticsearch", "CONFIGURED");
-            } catch (Exception e) {
-                health.put("elasticsearch", "DOWN: " + e.getMessage());
-            }
-        } else {
-            health.put("elasticsearch", "NOT_CONFIGURED");
+        health.setDatabase(database);
+
+        try {
+            health.setIndexHealth(esInitializer.checkIndexHealth());
+        } catch (Exception e) {
+            ElasticsearchInitializer.IndexHealth fallback = new ElasticsearchInitializer.IndexHealth();
+            fallback.setHealthy(false);
+            fallback.setEsConnected(false);
+            fallback.setIndexExists(false);
+            fallback.setMessage("检查失败: " + e.getMessage());
+            health.setIndexHealth(fallback);
         }
-        
-        return ResponseEntity.ok(health);
+
+        return ResponseEntity.ok(ApiResponse.success(health));
+    }
+
+    @Data
+    public static class HealthStatus {
+        private String status;
+        private String service;
+        private boolean alive;
+        private String timestamp;
+        private DatabaseHealth database;
+        private ElasticsearchInitializer.IndexHealth indexHealth;
+    }
+
+    @Data
+    public static class DatabaseHealth {
+        private boolean connected;
+        private String message;
     }
 }

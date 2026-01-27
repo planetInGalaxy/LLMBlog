@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { API_URL } from '../lib/api';
+import { API_URL, isApiSuccess } from '../lib/api';
 import { getArticleSummary } from '../lib/article';
 import { getPageUrl, updateSeoTags } from '../lib/seo';
 
@@ -28,7 +28,7 @@ function BlogListPage() {
     try {
       const response = await fetch(`${API_URL}/articles`);
       const result = await response.json();
-      if (result.success) {
+      if (isApiSuccess(result)) {
         setArticles(result.data);
       }
     } catch (error) {

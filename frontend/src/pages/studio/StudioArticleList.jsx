@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { API_URL } from '../../lib/api';
+import { API_URL, isApiSuccess } from '../../lib/api';
 import { handleStudioWriteResponse } from '../../lib/studioApi';
 
 function StudioArticleList() {
@@ -21,7 +21,7 @@ function StudioArticleList() {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       const result = await response.json();
-      if (result.success) {
+      if (isApiSuccess(result)) {
         setArticles(result.data);
       } else if (response.status === 401) {
         navigate('/studio/login');
@@ -38,7 +38,7 @@ function StudioArticleList() {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       const result = await response.json();
-      if (result.success) {
+      if (isApiSuccess(result)) {
         setIndexHealth(result.data);
       }
     } catch (error) {
@@ -55,7 +55,7 @@ function StudioArticleList() {
       });
       const result = await handleStudioWriteResponse(response, navigate);
       if (!result) return;
-      if (result.success) {
+      if (isApiSuccess(result)) {
         alert('发布成功！索引任务已提交');
         fetchArticles();
       } else {
@@ -77,7 +77,7 @@ function StudioArticleList() {
       });
       const result = await handleStudioWriteResponse(response, navigate);
       if (!result) return;
-      if (result.success) {
+      if (isApiSuccess(result)) {
         alert('下线成功！');
         fetchArticles();
       } else {
@@ -99,7 +99,7 @@ function StudioArticleList() {
       });
       const result = await handleStudioWriteResponse(response, navigate);
       if (!result) return;
-      if (result.success) {
+      if (isApiSuccess(result)) {
         alert('删除成功！');
         fetchArticles();
       } else {
@@ -121,7 +121,7 @@ function StudioArticleList() {
       });
       const result = await handleStudioWriteResponse(response, navigate);
       if (!result) return;
-      if (result.success) {
+      if (isApiSuccess(result)) {
         alert('索引任务已提交！');
       } else {
         alert(result.message);
@@ -143,7 +143,7 @@ function StudioArticleList() {
       });
       const result = await handleStudioWriteResponse(response, navigate);
       if (!result) return;
-      if (result.success) {
+      if (isApiSuccess(result)) {
         alert(result.message || '索引任务已全部提交！');
         fetchIndexHealth();
       } else {
@@ -202,6 +202,16 @@ function StudioArticleList() {
               </strong>
             </div>
           </div>
+          {(!indexHealth.esConnected || !indexHealth.indexExists) && (
+            <div className="health-diagnosis">
+              <h4>诊断建议</h4>
+              <ul>
+                <li>检查 docker-compose 中的 Elasticsearch 容器是否正常运行</li>
+                <li>确认后端 ES 地址/账号配置是否正确</li>
+                <li>尝试运行项目根目录的 `fix-es-index.sh` 进行修复</li>
+              </ul>
+            </div>
+          )}
         </div>
       )}
 

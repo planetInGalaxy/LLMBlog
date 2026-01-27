@@ -24,8 +24,12 @@ public class ArticleController {
      * 获取已发布文章列表
      */
     @GetMapping
-    public ResponseEntity<ApiResponse<List<ArticleDTO>>> getPublishedArticles() {
-        List<ArticleDTO> articles = articleService.getPublishedArticles();
+    public ResponseEntity<ApiResponse<List<ArticleDTO>>> getPublishedArticles(
+            @RequestParam(required = false) Integer page,
+            @RequestParam(required = false) Integer pageSize,
+            @RequestParam(required = false) String sortBy,
+            @RequestParam(required = false) String sortOrder) {
+        List<ArticleDTO> articles = articleService.getPublishedArticles(page, pageSize, sortBy, sortOrder);
         return ResponseEntity.ok(ApiResponse.success(articles));
     }
     

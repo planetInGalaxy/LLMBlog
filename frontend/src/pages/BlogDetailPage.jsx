@@ -4,7 +4,7 @@ import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { vscDarkPlus } from 'react-syntax-highlighter/dist/esm/styles/prism';
-import { API_URL } from '../lib/api';
+import { API_URL, isApiSuccess } from '../lib/api';
 import { getArticleDescription } from '../lib/article';
 import { getPageUrl, updateSeoTags } from '../lib/seo';
 
@@ -50,7 +50,7 @@ function BlogDetailPage() {
         return;
       }
       const result = await response.json();
-      if (response.ok && result.success && result.data) {
+      if (response.ok && isApiSuccess(result) && result.data) {
         setArticle(result.data);
       } else {
         setNotFound(true);

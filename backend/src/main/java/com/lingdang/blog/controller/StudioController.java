@@ -38,8 +38,12 @@ public class StudioController {
      * 获取所有文章（含草稿）
      */
     @GetMapping("/articles")
-    public ResponseEntity<ApiResponse<List<ArticleDTO>>> getAllArticles() {
-        List<ArticleDTO> articles = articleService.getAllArticles();
+    public ResponseEntity<ApiResponse<List<ArticleDTO>>> getAllArticles(
+            @RequestParam(required = false) Integer page,
+            @RequestParam(required = false) Integer pageSize,
+            @RequestParam(required = false) String sortBy,
+            @RequestParam(required = false) String sortOrder) {
+        List<ArticleDTO> articles = articleService.getAllArticles(page, pageSize, sortBy, sortOrder);
         return ResponseEntity.ok(ApiResponse.success(articles));
     }
     
