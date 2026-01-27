@@ -760,6 +760,34 @@
     box-shadow: none;
   }
 
+  /* 移动端：参考文章卡片两行展示（标题一行 + 相关度下一行），给标题更多横向空间 */
+  .citation-card {
+    padding: 0.9rem 1rem;
+    gap: 0.65rem;
+  }
+
+  .citation-card a {
+    min-width: 0;
+  }
+
+  .citation-card a strong {
+    display: block;
+    line-height: 1.4;
+  }
+
+  .citation-score {
+    flex-basis: 100%;
+    align-self: flex-start;
+    margin-left: calc(28px + 0.65rem);
+    margin-top: -0.25rem;
+  }
+
+  .citation-quote,
+  .citation-toggle {
+    padding-left: calc(28px + 0.65rem);
+    margin-left: 0;
+  }
+
   .footer.footer-assistant {
     display: none;
   }
