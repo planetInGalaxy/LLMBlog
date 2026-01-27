@@ -231,7 +231,7 @@ public class ElasticsearchInitializer {
      * 原子切换 alias 指向指定索引。
      */
     public void switchAliasTo(String newIndex) throws Exception {
-        String oldIndex = resolveCurrentIndex();
+        final String oldIndex = resolveCurrentIndex();
 
         esClient.indices().updateAliases(a -> {
             if (oldIndex != null) {
