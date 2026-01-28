@@ -19,9 +19,12 @@ services:
       timeout: 20s
       retries: 10
 
-  # Elasticsearch 8.x
+  # Elasticsearch 8.x (with IK analyzer)
   elasticsearch:
-    image: elasticsearch:8.11.3
+    build:
+      context: .
+      dockerfile: deploy/elasticsearch/Dockerfile
+    image: lingdang-elasticsearch-ik:8.11.3
     container_name: lingdang-elasticsearch
     environment:
       - discovery.type=single-node

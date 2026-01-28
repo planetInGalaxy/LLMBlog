@@ -115,7 +115,7 @@ jobs:
             echo "🏗️ 重新构建前端和后端..."
             # 使用 --pull 确保基础镜像最新，但保留依赖缓存加速构建
             echo "📌 构建版本号: ${GITHUB_SHA}"
-            docker compose build --pull --build-arg VITE_APP_VERSION=${GITHUB_SHA} frontend backend
+            docker compose build --pull --build-arg VITE_APP_VERSION=${GITHUB_SHA} frontend backend elasticsearch
             
             echo ""
             echo "🔄 停止旧容器并启动新容器..."

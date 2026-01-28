@@ -3,6 +3,8 @@ package com.lingdang.blog.controller;
 import com.lingdang.blog.dto.ApiResponse;
 import com.lingdang.blog.dto.article.ArticleDTO;
 import com.lingdang.blog.service.ArticleService;
+import com.lingdang.blog.service.ArticleSearchService;
+import com.lingdang.blog.dto.article.ArticleSearchResponse;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -19,6 +21,9 @@ public class ArticleController {
     
     @Autowired
     private ArticleService articleService;
+
+    @Autowired
+    private ArticleSearchService articleSearchService;
     
     /**
      * 获取已发布文章列表
@@ -48,11 +53,16 @@ public class ArticleController {
     }
     
     /**
-     * 搜索文章
+     * 搜索文章（基于 ES chunks，返回文章维度结果，包含高亮片段 snippet）
      */
     @GetMapping("/search")
-    public ResponseEntity<ApiResponse<List<ArticleDTO>>> searchArticles(@RequestParam String keyword) {
-        List<ArticleDTO> articles = articleService.searchArticles(keyword);
-        return ResponseEntity.ok(ApiResponse.success(articles));
+    public ResponseEntity<ApiResponse<ArticleSearchResponse>> searchArticles(
+            @RequestParam(required = false) String q,
+            @RequestParam(required = false) String keyword,
+            @RequestParam(required = false) Integer page,
+            @RequestParam(required = false) Integer pageSize) {
+        String query = (q != null && !q.trim().isEmpty()) ? q : keyword;
+        ArticleSearchResponse resp = articleSearchService.searchPublished(query, page, pageSize);
+        return ResponseEntity.ok(ApiResponse.success(resp));
     }
 }

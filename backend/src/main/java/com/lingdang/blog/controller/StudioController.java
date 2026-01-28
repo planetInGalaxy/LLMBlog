@@ -203,39 +203,25 @@ public class StudioController {
      */
     @PostMapping("/reindex-all")
     public ResponseEntity<ApiResponse<Void>> reindexAll() {
-        if (!indexPipelineService.tryStartFullReindex()) {
-            return ResponseEntity.ok(ApiResponse.error("全量重建索引已在进行"));
-        }
-
         try {
-            // 先检查索引健康
+            // 先检查 ES 连接
             ElasticsearchInitializer.IndexHealth health = esInitializer.checkIndexHealth();
             if (!health.isEsConnected()) {
                 return ResponseEntity.ok(ApiResponse.error("Elasticsearch 连接失败，请检查服务状态"));
             }
-            
-            // 如果索引不存在，先初始化
+
+            // 如果 alias 不存在，先初始化（会创建索引并绑定 alias）
             if (!health.isIndexExists()) {
                 esInitializer.initializeIndex();
             }
-            
-            List<ArticleDTO> articles = articleService.getPublishedArticles();
-            int submitted = 0;
-            for (ArticleDTO article : articles) {
-                Long jobId = indexPipelineService.reindex(article.getId());
-                if (jobId != null) {
-                    indexPipelineService.trackFullReindexJob(jobId);
-                    submitted++;
-                }
-            }
-            if (submitted == 0) {
-                indexPipelineService.finishFullReindexIfNoJobs();
-            }
-            return ResponseEntity.ok(ApiResponse.success("已提交 " + submitted + " 个索引任务", null));
+
+            // 走蓝绿重建（FullReindexService），避免重建期间线上索引抖动
+            RagConfigDTO cfg = ragConfigService.getConfig();
+            ragReindexJobService.submitChunkSizeReindex(cfg);
+
+            return ResponseEntity.ok(ApiResponse.success("已提交全量重建索引任务（蓝绿重建）", null));
         } catch (Exception e) {
             return ResponseEntity.ok(ApiResponse.error(e.getMessage()));
-        } finally {
-            indexPipelineService.finishFullReindexIfNoJobs();
         }
     }
     
