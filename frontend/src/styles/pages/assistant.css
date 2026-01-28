@@ -116,6 +116,19 @@
   margin-top: 0.75rem;
 }
 
+/* 回答内的引用角标（¹²³…） */
+.citation-inline {
+  font-size: 1.05em; /* 稍微大一点 */
+  vertical-align: super;
+  text-decoration: none;
+  color: var(--primary-color);
+  margin-left: 2px;
+}
+
+.citation-inline:hover {
+  text-decoration: underline;
+}
+
 .citation-item {
   background: var(--bg-color);
   padding: 1rem;

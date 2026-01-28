@@ -50,6 +50,7 @@ function AssistantPage() {
   const [isMobile, setIsMobile] = useState(false);
   const [highlightedCite, setHighlightedCite] = useState(null); // { msgIndex, refIndex }
   const citationsDetailsRef = useRef(new Map());
+  const autoScrollEnabledRef = useRef(false);
   const messagesEndRef = useRef(null);
   const messagesContainerRef = useRef(null);
   const scrollRafRef = useRef(null);
@@ -131,6 +132,9 @@ function AssistantPage() {
   };
 
   useEffect(() => {
+    // 桌面端默认不自动滚动（避免进入/刷新时出现“往下滚一下”）；一旦用户提交问题才启用。
+    if (!autoScrollEnabledRef.current) return;
+
     // 只有用户在底部附近时才自动滚动；否则用户在上面看历史消息会被“拉回去”。
     if (!isNearBottom()) return;
 
@@ -143,7 +147,11 @@ function AssistantPage() {
 
   useEffect(() => {
     const mediaQuery = window.matchMedia('(max-width: 480px)');
-    const handleChange = (event) => setIsMobile(event.matches);
+    const handleChange = (event) => {
+      setIsMobile(event.matches);
+      // 移动端默认允许自动滚动（聊天体验）；桌面端默认不滚动，避免进入/刷新时把导航栏“顶掉”
+      autoScrollEnabledRef.current = event.matches;
+    };
     handleChange(mediaQuery);
     mediaQuery.addEventListener('change', handleChange);
     return () => mediaQuery.removeEventListener('change', handleChange);
@@ -201,6 +209,9 @@ function AssistantPage() {
     if (abortControllerRef.current) {
       abortActiveStream('manual');
     }
+
+    // 用户开始交互后允许自动滚动（把新回答保持在视野内）
+    autoScrollEnabledRef.current = true;
 
     const userMessage = input.trim();
     setInput('');
