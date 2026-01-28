@@ -39,6 +39,25 @@
   flex-wrap: wrap;
 }
 
+/* Hero 首屏 CTA：移动端两按钮对称、居中且协调 */
+.home-hero-actions .btn {
+  flex: 1;
+  min-width: 140px;
+  text-align: center;
+  justify-content: center;
+}
+
+@media (max-width: 520px) {
+  .home-hero-actions {
+    width: 100%;
+  }
+
+  .home-hero-actions .btn {
+    flex: 1 1 0;
+    min-width: 0;
+  }
+}
+
 .home-proof-card {
   background: rgba(255, 255, 255, 0.12);
   border: 1px solid rgba(255, 255, 255, 0.18);
