@@ -118,7 +118,7 @@
 
 /* 回答内的引用角标（¹²³…） */
 .citation-inline {
-  font-size: 1.25em; /* 再大一点 */
+  font-size: 1.20em; /* 调小一点 */
   vertical-align: super;
   text-decoration: none;
   color: var(--primary-color);
