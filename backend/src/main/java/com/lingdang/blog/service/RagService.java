@@ -834,7 +834,36 @@ public class RagService {
             // 0) 意图识别：问候/无关问题直接友好回复（不走检索、不引用）
             IntentResult intent = classifyIntent(request);
             if (intent.getIntent() == IntentType.SMALL_TALK || intent.getIntent() == IntentType.OTHER) {
-                String answer = replySmallTalkOrOther(request, intent.getIntent());
+                // 仍然用“流式”输出，保持前端体验一致
+                final String sys = (intent.getIntent() == IntentType.OTHER) ? OTHER_SYSTEM_PROMPT : SMALL_TALK_SYSTEM_PROMPT;
+                final String q = request.getQuestion() != null ? request.getQuestion().trim() : "";
+
+                // 固定介绍：用分片发送模拟流式（避免额外 LLM 调用）
+                if (q.contains("你是谁") || q.contains("你是誰") || q.contains("你能做什么") || q.contains("你能做啥")
+                    || q.contains("你可以做什么") || q.contains("你会什么")) {
+
+                    String answer = ASSISTANT_INTRO.trim();
+                    int chunkSize = 24;
+                    for (int i = 0; i < answer.length(); i += chunkSize) {
+                        String part = answer.substring(i, Math.min(answer.length(), i + chunkSize));
+                        emitter.send(SseEmitter.event().name("message").data(part));
+                        try { Thread.sleep(10); } catch (InterruptedException ignored) { }
+                    }
+
+                } else {
+                    List<ChatCompletionRequest.ChatMessage> messages = new ArrayList<>();
+                    messages.add(new ChatCompletionRequest.ChatMessage("system", sys));
+                    messages.add(new ChatCompletionRequest.ChatMessage("user", q));
+
+                    llmService.chatCompletionStream(messages, 512, (chunk) -> {
+                        try {
+                            emitter.send(SseEmitter.event().name("message").data(chunk));
+                        } catch (IOException ignored) {
+                        }
+                    });
+                }
+
+                long latency = System.currentTimeMillis() - startTime;
 
                 // 更新观测日志
                 if (ragLog != null) {
@@ -843,15 +872,14 @@ public class RagService {
                     ragLog.setBm25Candidates(0);
                     ragLog.setFilteredCandidates(0);
                     ragLog.setCitationsCount(0);
-                    ragLog.setLatencyMs((int) (System.currentTimeMillis() - startTime));
+                    ragLog.setLatencyMs((int) latency);
                     ragLog.setSuccess(true);
                     ragLog.setHitArticleIds("");
                     ragObservabilityService.upsertQueryLog(ragLog);
                 }
 
-                emitter.send(SseEmitter.event().name("message").data(answer));
                 emitter.send(SseEmitter.event().name("done")
-                    .data("{\"latencyMs\":" + (System.currentTimeMillis() - startTime) + "}"));
+                    .data("{\"latencyMs\":" + latency + "}"));
                 emitter.complete();
                 return;
             }

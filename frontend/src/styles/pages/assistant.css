@@ -129,6 +129,35 @@
   text-decoration: underline;
 }
 
+/* 等待首 token 的友好动效 */
+.assistant-thinking {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  color: var(--text-light);
+  font-size: 0.98rem;
+  margin-top: 0.35rem;
+}
+
+.thinking-dots {
+  width: 18px;
+  text-align: left;
+  display: inline-block;
+}
+
+.thinking-dots::after {
+  content: '...';
+  display: inline-block;
+  overflow: hidden;
+  vertical-align: bottom;
+  width: 0;
+  animation: dots 1.2s steps(4, end) infinite;
+}
+
+@keyframes dots {
+  to { width: 1.2em; }
+}
+
 .citation-item {
   background: var(--bg-color);
   padding: 1rem;

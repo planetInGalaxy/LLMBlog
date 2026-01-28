@@ -496,8 +496,14 @@ function AssistantPage() {
                             em: ({children}) => <em>{children}</em>,
                           }}
                         >
-                          {decorateCitationMarks(normalizeMarkdown(msg.content || '思考中...'))}
+                          {decorateCitationMarks(normalizeMarkdown(msg.content || ''))}
                         </ReactMarkdown>
+                        {msg.streaming && (!msg.content || !msg.content.trim()) && (
+                          <div className="assistant-thinking" aria-label="思考中">
+                            <span>思考中</span>
+                            <span className="thinking-dots" aria-hidden="true"></span>
+                          </div>
+                        )}
                       </div>
 
                       {msg.citations && msg.citations.length > 0 && (() => {
@@ -554,7 +560,7 @@ function AssistantPage() {
           rows={3}
         />
         <button type="submit" disabled={!input.trim()}>
-          {loading ? '思考中...' : '发送'}
+          {loading ? '思考中…' : '发送'}
         </button>
       </form>
     </div>
