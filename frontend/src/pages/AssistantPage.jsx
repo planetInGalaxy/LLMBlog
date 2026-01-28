@@ -71,7 +71,7 @@ function AssistantPage() {
   // 把回答里的 [1][2]… 转成可点击的“角标链接”，用于跳到参考文章
   const decorateCitationMarks = (text) => {
     if (!text) return text;
-    return String(text).replace(/\[(\d{1,3})\]/g, (_, n) => `[${toSup(n)}](#cite-${n})`);
+    return String(text).replace(/\[\s*(\d{1,3})\s*\]/g, (_, n) => `[${toSup(n)}](#cite-${n})`);
   };
 
   // 规范化 Markdown：修复流式输出导致的换行缺失问题（避免把多个标题/列表粘到一行）
@@ -500,30 +500,41 @@ function AssistantPage() {
                         </ReactMarkdown>
                       </div>
 
-                      {msg.citations && msg.citations.length > 0 && (
-                        <details
-                          className="citations"
-                          ref={(el) => {
-                            if (el) citationsDetailsRef.current.set(idx, el);
-                          }}
-                        >
-                          <summary>📚 参考文章 ({msg.citations.length})</summary>
-                          <div className="citations-content">
-                            {msg.citations.map((cite, i) => (
-                              <CitationItem
-                                key={cite.chunkId || `${idx}-cite-${i}`}
-                                cite={cite}
-                                index={i}
-                                highlighted={
-                                  highlightedCite &&
-                                  highlightedCite.msgIndex === idx &&
-                                  String(highlightedCite.refIndex) === String(cite.refIndex || (i + 1))
-                                }
-                              />
-                            ))}
-                          </div>
-                        </details>
-                      )}
+                      {msg.citations && msg.citations.length > 0 && (() => {
+                        const refs = new Set(
+                          (msg.content || '')
+                            .match(/\[\s*\d{1,3}\s*\]/g)
+                            ?.map(s => s.replace(/\D/g, ''))
+                            .filter(Boolean) || []
+                        );
+                        const filtered = msg.citations.filter(c => refs.has(String(c.refIndex || '')));
+                        const list = filtered.length > 0 ? filtered : msg.citations;
+
+                        return (
+                          <details
+                            className="citations"
+                            ref={(el) => {
+                              if (el) citationsDetailsRef.current.set(idx, el);
+                            }}
+                          >
+                            <summary>📚 参考文章 ({list.length})</summary>
+                            <div className="citations-content">
+                              {list.map((cite, i) => (
+                                <CitationItem
+                                  key={cite.chunkId || `${idx}-cite-${i}`}
+                                  cite={cite}
+                                  index={i}
+                                  highlighted={
+                                    highlightedCite &&
+                                    highlightedCite.msgIndex === idx &&
+                                    String(highlightedCite.refIndex) === String(cite.refIndex || (i + 1))
+                                  }
+                                />
+                              ))}
+                            </div>
+                          </details>
+                        );
+                      })()}
                     </>
                   )}
                 </div>
