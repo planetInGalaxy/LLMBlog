@@ -501,7 +501,11 @@ function AssistantPage() {
                         {msg.streaming && (!msg.content || !msg.content.trim()) && (
                           <div className="assistant-thinking" aria-label="思考中">
                             <span>思考中</span>
-                            <span className="thinking-dots" aria-hidden="true"></span>
+                            <span className="thinking-dots" aria-hidden="true">
+                              <span className="dot" />
+                              <span className="dot" />
+                              <span className="dot" />
+                            </span>
                           </div>
                         )}
                       </div>
