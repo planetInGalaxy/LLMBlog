@@ -48,7 +48,140 @@ public class RagService {
     private RagConfigService ragConfigService;
     
     private final ObjectMapper objectMapper = new ObjectMapper();
+
+    private IntentResult classifyIntent(AssistantRequest request) {
+        String question = request != null ? request.getQuestion() : null;
+        String q = question != null ? question.trim() : "";
+
+        // 空输入兜底
+        if (q.isEmpty()) {
+            IntentResult r = new IntentResult();
+            r.setIntent(IntentType.SMALL_TALK);
+            r.setReason("empty");
+            return r;
+        }
+
+        // 先对“你是谁/你能做什么”做硬匹配：直接走介绍（减少一次 LLM 调用）
+        String lower = q.toLowerCase(Locale.ROOT);
+        if (q.contains("你是谁") || q.contains("你是誰") || q.contains("你能做什么") || q.contains("你能做啥")
+            || q.contains("你可以做什么") || q.contains("你会什么") || lower.contains("who are you")) {
+            IntentResult r = new IntentResult();
+            r.setIntent(IntentType.SMALL_TALK);
+            r.setReason("about_assistant");
+            return r;
+        }
+
+        try {
+            List<ChatCompletionRequest.ChatMessage> messages = new ArrayList<>();
+            messages.add(new ChatCompletionRequest.ChatMessage("system", INTENT_SYSTEM_PROMPT));
+
+            // 附少量历史上下文（可选），帮助判断“这句是追问还是闲聊”
+            if (request.getHistory() != null && !request.getHistory().isEmpty()) {
+                int start = Math.max(0, request.getHistory().size() - 4);
+                for (int i = start; i < request.getHistory().size(); i++) {
+                    AssistantRequest.ChatMessage hm = request.getHistory().get(i);
+                    if (hm != null && hm.getRole() != null && hm.getContent() != null) {
+                        messages.add(new ChatCompletionRequest.ChatMessage(hm.getRole(), truncate(hm.getContent(), 200)));
+                    }
+                }
+            }
+
+            messages.add(new ChatCompletionRequest.ChatMessage("user", q));
+
+            // 用较小 maxTokens，强制短 JSON 输出
+            String raw = llmService.chatCompletion(messages, 120);
+            String cleaned = raw != null ? raw.trim() : "";
+
+            // 兜底：去掉可能的代码块包裹
+            cleaned = cleaned.replaceAll("^```(?:json)?", "").replaceAll("```$", "").trim();
+
+            Map<?, ?> map = objectMapper.readValue(cleaned, Map.class);
+            String intent = map.get("intent") != null ? String.valueOf(map.get("intent")) : "";
+            String reason = map.get("reason") != null ? String.valueOf(map.get("reason")) : null;
+
+            IntentResult r = new IntentResult();
+            r.setReason(reason);
+            if ("SMALL_TALK".equalsIgnoreCase(intent)) {
+                r.setIntent(IntentType.SMALL_TALK);
+            } else if ("OTHER".equalsIgnoreCase(intent)) {
+                r.setIntent(IntentType.OTHER);
+            } else {
+                r.setIntent(IntentType.BLOG_OR_AI);
+            }
+            return r;
+
+        } catch (Exception e) {
+            // 解析失败时默认走 BLOG/AI（不影响主流程）
+            IntentResult r = new IntentResult();
+            r.setIntent(IntentType.BLOG_OR_AI);
+            r.setReason("intent_parse_failed: " + e.getMessage());
+            return r;
+        }
+    }
+
+    private String replySmallTalkOrOther(AssistantRequest request, IntentType intentType) throws Exception {
+        String q = request != null && request.getQuestion() != null ? request.getQuestion().trim() : "";
+        // 固定介绍
+        if (q.contains("你是谁") || q.contains("你是誰") || q.contains("你能做什么") || q.contains("你能做啥")
+            || q.contains("你可以做什么") || q.contains("你会什么")) {
+            return ASSISTANT_INTRO.trim();
+        }
+
+        String sys = (intentType == IntentType.OTHER) ? OTHER_SYSTEM_PROMPT : SMALL_TALK_SYSTEM_PROMPT;
+        List<ChatCompletionRequest.ChatMessage> messages = new ArrayList<>();
+        messages.add(new ChatCompletionRequest.ChatMessage("system", sys));
+        messages.add(new ChatCompletionRequest.ChatMessage("user", q));
+        return llmService.chatCompletion(messages, 256);
+    }
+
     
+    // Intent routing
+    private enum IntentType {
+        SMALL_TALK,
+        BLOG_OR_AI,
+        OTHER
+    }
+
+    @Data
+    private static class IntentResult {
+        private IntentType intent;
+        private String reason;
+    }
+
+    private static final String ASSISTANT_INTRO = """
+        你好！我是「铃铛师兄大模型」网站的 AI 学习助手。
+
+        我主要能帮你做三类事：
+        1) 基于本站文章知识库回答问题，并给出引用来源
+        2) 帮你梳理大模型学习路径（从基础 → RAG → Agent → 工程化/面试）
+        3) 把知识落到可执行的练习/项目/面试回答模板
+
+        你可以直接告诉我：你的背景（后端/前端/0基础）+ 目标（转型/面试/项目落地），我给你最短路径。
+        """;
+
+    private static final String INTENT_SYSTEM_PROMPT = """
+        你是一个意图识别器。你只需要判断用户问题是否属于：
+        - SMALL_TALK：问候/告别/感谢/你是谁/你能做什么等闲聊
+        - BLOG_OR_AI：与大模型学习、AI工程技术、本站博客内容相关的问题
+        - OTHER：与大模型学习和本站内容无关的其它问题
+
+        输出必须是严格 JSON（不要 markdown，不要解释），格式：
+        {"intent":"SMALL_TALK|BLOG_OR_AI|OTHER","reason":"..."}
+        """;
+
+    private static final String SMALL_TALK_SYSTEM_PROMPT = """
+        你是铃铛师兄大模型网站的 AI 学习助手。
+        用户在和你打招呼/闲聊。请用中文简短友好回复（1~3 句），不要引用文章，不要输出角标。
+        在最后加一句温和引导：建议用户提一个与大模型学习/面试/项目落地相关的问题。
+        """;
+
+    private static final String OTHER_SYSTEM_PROMPT = """
+        你是铃铛师兄大模型网站的 AI 学习助手。
+        用户的问题与大模型学习或本站文章无关。
+        你可以简单回答（1~4 句），但不要编造具体事实；不要引用文章，不要输出角标。
+        在最后加一句温和引导：建议用户提一个与大模型学习/面试/项目落地相关的问题。
+        """;
+
     // System Prompt
     private static final String SYSTEM_PROMPT_WITH_ARTICLES = """
         你是铃铛师兄大模型博客的智能助手。你的任务是基于提供的文章片段回答用户的问题。
@@ -150,6 +283,38 @@ public class RagService {
             int topK = ragConfig.getTopK() != null ? ragConfig.getTopK() : 5;
             double minScore = ragConfig.getMinScore() != null ? ragConfig.getMinScore() : 0.0;
             boolean returnCitations = Boolean.TRUE.equals(ragConfig.getReturnCitations());
+
+            // 0) 意图识别：问候/无关问题直接友好回复（不走检索、不引用）
+            IntentResult intent = classifyIntent(request);
+            if (intent.getIntent() == IntentType.SMALL_TALK || intent.getIntent() == IntentType.OTHER) {
+                String answer = replySmallTalkOrOther(request, intent.getIntent());
+
+                AssistantResponse response = new AssistantResponse();
+                response.setAnswer(answer);
+                response.setCitations(new ArrayList<>());
+                response.setQueryId(requestId);
+                response.setLatencyMs((int) (System.currentTimeMillis() - startTime));
+
+                // 记录日志（无检索）
+                logQuery(requestId, clientIp, request, Collections.emptyList(), null, response, true);
+
+                // RAG 观测：标记无检索
+                try {
+                    RagQueryLog ragLog = ragObservabilityService.buildBaseLog(requestId, clientIp, request.getQuestion(), ragConfig);
+                    ragLog.setHasArticles(false);
+                    ragLog.setVectorCandidates(0);
+                    ragLog.setBm25Candidates(0);
+                    ragLog.setFilteredCandidates(0);
+                    ragLog.setCitationsCount(0);
+                    ragLog.setLatencyMs(response.getLatencyMs());
+                    ragLog.setSuccess(true);
+                    ragLog.setHitArticleIds("");
+                    ragObservabilityService.upsertQueryLog(ragLog);
+                } catch (Exception ignored) {
+                }
+
+                return response;
+            }
 
             // 1. 生成查询向量
             float[] queryEmbedding = llmService.generateEmbedding(request.getQuestion());
@@ -665,6 +830,31 @@ public class RagService {
 
             log.info("收到流式查询请求: request_id={}, question={}, mode={}", 
                 requestId, request.getQuestion(), request.getMode());
+
+            // 0) 意图识别：问候/无关问题直接友好回复（不走检索、不引用）
+            IntentResult intent = classifyIntent(request);
+            if (intent.getIntent() == IntentType.SMALL_TALK || intent.getIntent() == IntentType.OTHER) {
+                String answer = replySmallTalkOrOther(request, intent.getIntent());
+
+                // 更新观测日志
+                if (ragLog != null) {
+                    ragLog.setHasArticles(false);
+                    ragLog.setVectorCandidates(0);
+                    ragLog.setBm25Candidates(0);
+                    ragLog.setFilteredCandidates(0);
+                    ragLog.setCitationsCount(0);
+                    ragLog.setLatencyMs((int) (System.currentTimeMillis() - startTime));
+                    ragLog.setSuccess(true);
+                    ragLog.setHitArticleIds("");
+                    ragObservabilityService.upsertQueryLog(ragLog);
+                }
+
+                emitter.send(SseEmitter.event().name("message").data(answer));
+                emitter.send(SseEmitter.event().name("done")
+                    .data("{\"latencyMs\":" + (System.currentTimeMillis() - startTime) + "}"));
+                emitter.complete();
+                return;
+            }
             
             // 1. 生成 embedding
             float[] queryEmbedding = llmService.generateEmbedding(request.getQuestion());
