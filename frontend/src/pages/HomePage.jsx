@@ -56,7 +56,7 @@ function HomePage() {
             </p>
 
             <div className="home-hero-actions">
-              <Link to="/blog" className="btn btn-primary">开始学习（看文章）</Link>
+              <Link to="/blog" className="btn btn-primary">开始看文章</Link>
               <Link to="/assistant" className="btn btn-secondary">直接问助手</Link>
             </div>
           </div>
