@@ -39,6 +39,14 @@ public class RagConfig {
     private Boolean returnCitations;
 
     /**
+     * 是否开启灵活模式（FLEXIBLE）。
+     * - true：无命中文章时也允许基于模型知识回答
+     * - false：强制只基于文章（等价于 ARTICLE_ONLY）
+     */
+    @Column(name = "flexible_mode_enabled")
+    private Boolean flexibleModeEnabled;
+
+    /**
      * 混合检索权重：向量相似度权重（0~100）
      */
     @Column(name = "vector_weight")

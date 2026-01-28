@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { API_URL, isApiSuccess } from '../../lib/api';
 import { handleStudioWriteResponse } from '../../lib/studioApi';
+import ToggleSwitch from '../../components/ToggleSwitch';
 
 function StudioRagSettings() {
   const [form, setForm] = useState({
@@ -9,6 +10,7 @@ function StudioRagSettings() {
     minScore: '0',
     chunkSize: '900',
     returnCitations: true,
+    flexibleModeEnabled: true,
     vectorWeight: '70',
     bm25Max: '15'
   });
@@ -35,6 +37,7 @@ function StudioRagSettings() {
           minScore: String(data.minScore ?? 0),
           chunkSize: String(data.chunkSize ?? 900),
           returnCitations: data.returnCitations !== false,
+          flexibleModeEnabled: data.flexibleModeEnabled !== false,
           vectorWeight: String(data.vectorWeight ?? 70),
           bm25Max: String(data.bm25Max ?? 15)
         });
@@ -110,7 +113,8 @@ function StudioRagSettings() {
           vectorWeight,
           bm25Weight,
           bm25Max,
-          returnCitations: !!form.returnCitations
+          returnCitations: !!form.returnCitations,
+          flexibleModeEnabled: !!form.flexibleModeEnabled
         })
       });
       const result = await handleStudioWriteResponse(response, navigate);
@@ -233,16 +237,21 @@ function StudioRagSettings() {
           />
           <div className="form-hint">本次保存会自动全量重建索引，可能需要几十秒～数分钟，请耐心等待。</div>
         </div>
-        <div className="form-group form-toggle">
-          <label>
-            <input
-              type="checkbox"
-              checked={!!form.returnCitations}
-              onChange={(e) => setForm(prev => ({ ...prev, returnCitations: e.target.checked }))}
-            />
-            返回引用
-          </label>
-        </div>
+        <ToggleSwitch
+          checked={!!form.flexibleModeEnabled}
+          onChange={(e) => setForm(prev => ({ ...prev, flexibleModeEnabled: e.target.checked }))}
+          label="灵活回答"
+          hint="未命中文章时，允许模型用自身知识补充回答"
+          disabled={saving}
+        />
+
+        <ToggleSwitch
+          checked={!!form.returnCitations}
+          onChange={(e) => setForm(prev => ({ ...prev, returnCitations: e.target.checked }))}
+          label="返回引用"
+          hint="在回答中显示引用角标，并在下方列出参考文章"
+          disabled={saving}
+        />
         <div className="form-actions">
           <button onClick={handleSave} disabled={saving}>
             {saving ? '保存中…' : '保存配置'}

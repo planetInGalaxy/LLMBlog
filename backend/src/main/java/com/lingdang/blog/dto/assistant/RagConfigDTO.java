@@ -28,6 +28,11 @@ public class RagConfigDTO {
     private Boolean returnCitations;
 
     /**
+     * 是否开启「灵活回答」：无命中文章时允许模型用自身知识回答。
+     */
+    private Boolean flexibleModeEnabled;
+
+    /**
      * 混合检索权重：向量相似度权重（0~100）
      */
     private Integer vectorWeight;

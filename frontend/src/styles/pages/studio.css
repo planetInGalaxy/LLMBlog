@@ -185,16 +185,76 @@
   color: var(--warning-color);
 }
 
-.form-toggle label {
-  display: flex;
-  align-items: center;
-  gap: 0.6rem;
-  font-weight: 600;
+/* 更现代的开关组件 */
+.toggle-row {
+  margin-bottom: 1.25rem;
 }
 
-.form-toggle input[type="checkbox"] {
-  width: 18px;
-  height: 18px;
+.toggle-switch {
+  display: flex;
+  align-items: center;
+  gap: 0.9rem;
+  cursor: pointer;
+  user-select: none;
+}
+
+.toggle-switch.is-disabled {
+  opacity: 0.65;
+  cursor: not-allowed;
+}
+
+.toggle-switch input {
+  position: absolute;
+  opacity: 0;
+  width: 1px;
+  height: 1px;
+}
+
+.toggle-switch .slider {
+  width: 46px;
+  height: 26px;
+  border-radius: 999px;
+  background: #d1d5db;
+  position: relative;
+  transition: background 0.2s ease;
+  flex-shrink: 0;
+}
+
+.toggle-switch .slider::after {
+  content: '';
+  position: absolute;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: #fff;
+  top: 2px;
+  left: 2px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.18);
+  transition: transform 0.2s ease;
+}
+
+.toggle-switch input:checked + .slider {
+  background: var(--primary-color);
+}
+
+.toggle-switch input:checked + .slider::after {
+  transform: translateX(20px);
+}
+
+.toggle-switch .toggle-label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+
+.toggle-switch .toggle-title {
+  font-weight: 700;
+  color: var(--text-color);
+}
+
+.toggle-switch .toggle-hint {
+  font-size: 0.85rem;
+  color: var(--text-light);
 }
 
 .form-group {
@@ -322,6 +382,38 @@ button.btn-info:hover:not(:disabled) {
   .article-table td {
     padding: 0.5rem;
   }
+}
+
+/* ========== Studio 提示词配置 ========== */
+.prompt-card {
+  background: var(--bg-color);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius);
+  padding: 1.25rem;
+  margin-bottom: 1.25rem;
+}
+
+.prompt-title {
+  font-weight: 800;
+  margin-bottom: 0.25rem;
+}
+
+.prompt-key {
+  font-size: 0.85rem;
+  color: var(--text-light);
+  margin-bottom: 0.5rem;
+}
+
+.prompt-desc {
+  color: var(--text-color);
+  line-height: 1.6;
+  margin-bottom: 0.75rem;
+  white-space: pre-wrap;
+}
+
+.prompt-card textarea {
+  min-height: 220px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
 }
 
 /* ========== Studio 新增样式 ========== */

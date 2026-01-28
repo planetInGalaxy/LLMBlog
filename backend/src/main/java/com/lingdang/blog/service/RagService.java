@@ -73,7 +73,7 @@ public class RagService {
 
         try {
             List<ChatCompletionRequest.ChatMessage> messages = new ArrayList<>();
-            messages.add(new ChatCompletionRequest.ChatMessage("system", INTENT_SYSTEM_PROMPT));
+            messages.add(new ChatCompletionRequest.ChatMessage("system", prompt(PromptDefaults.KEY_INTENT, INTENT_SYSTEM_PROMPT)));
 
             // 附少量历史上下文（可选），帮助判断“这句是追问还是闲聊”
             if (request.getHistory() != null && !request.getHistory().isEmpty()) {
@@ -124,10 +124,12 @@ public class RagService {
         // 固定介绍
         if (q.contains("你是谁") || q.contains("你是誰") || q.contains("你能做什么") || q.contains("你能做啥")
             || q.contains("你可以做什么") || q.contains("你会什么")) {
-            return ASSISTANT_INTRO.trim();
+            return prompt(PromptDefaults.KEY_INTRO, ASSISTANT_INTRO).trim();
         }
 
-        String sys = (intentType == IntentType.OTHER) ? OTHER_SYSTEM_PROMPT : SMALL_TALK_SYSTEM_PROMPT;
+        String sys = (intentType == IntentType.OTHER)
+            ? prompt(PromptDefaults.KEY_OTHER, OTHER_SYSTEM_PROMPT)
+            : prompt(PromptDefaults.KEY_SMALL_TALK, SMALL_TALK_SYSTEM_PROMPT);
         List<ChatCompletionRequest.ChatMessage> messages = new ArrayList<>();
         messages.add(new ChatCompletionRequest.ChatMessage("system", sys));
         messages.add(new ChatCompletionRequest.ChatMessage("user", q));
@@ -146,6 +148,17 @@ public class RagService {
     private static class IntentResult {
         private IntentType intent;
         private String reason;
+    }
+
+    @Autowired
+    private PromptTemplateService promptTemplateService;
+
+    private String prompt(String key, String fallback) {
+        try {
+            return promptTemplateService.getContentOrDefault(key, fallback);
+        } catch (Exception e) {
+            return fallback;
+        }
     }
 
     private static final String ASSISTANT_INTRO = """
@@ -266,9 +279,13 @@ public class RagService {
 
     private String selectSystemPrompt(boolean hasArticles, boolean isFlexibleMode, boolean returnCitations) {
         if (hasArticles || !isFlexibleMode) {
-            return returnCitations ? SYSTEM_PROMPT_WITH_ARTICLES : SYSTEM_PROMPT_WITH_ARTICLES_NO_CITATION;
+            return returnCitations
+                ? prompt(PromptDefaults.KEY_WITH_ARTICLES, SYSTEM_PROMPT_WITH_ARTICLES)
+                : prompt(PromptDefaults.KEY_WITH_ARTICLES_NO_CITATION, SYSTEM_PROMPT_WITH_ARTICLES_NO_CITATION);
         }
-        return returnCitations ? SYSTEM_PROMPT_FLEXIBLE : SYSTEM_PROMPT_FLEXIBLE_NO_CITATION;
+        return returnCitations
+            ? prompt(PromptDefaults.KEY_FLEXIBLE, SYSTEM_PROMPT_FLEXIBLE)
+            : prompt(PromptDefaults.KEY_FLEXIBLE_NO_CITATION, SYSTEM_PROMPT_FLEXIBLE_NO_CITATION);
     }
     
     /**
@@ -330,7 +347,8 @@ public class RagService {
             
             // 4. 判断模式和是否有高相关度检索结果
             boolean hasArticles = !highRelevanceResults.isEmpty();
-            boolean isFlexibleMode = "FLEXIBLE".equalsIgnoreCase(request.getMode());
+            boolean flexibleEnabled = ragConfig.getFlexibleModeEnabled() == null ? true : Boolean.TRUE.equals(ragConfig.getFlexibleModeEnabled());
+            boolean isFlexibleMode = flexibleEnabled && "FLEXIBLE".equalsIgnoreCase(request.getMode());
             
             // 5. 构建消息列表（包含历史对话）
             List<ChatCompletionRequest.ChatMessage> messages = new ArrayList<>();
@@ -835,14 +853,16 @@ public class RagService {
             IntentResult intent = classifyIntent(request);
             if (intent.getIntent() == IntentType.SMALL_TALK || intent.getIntent() == IntentType.OTHER) {
                 // 仍然用“流式”输出，保持前端体验一致
-                final String sys = (intent.getIntent() == IntentType.OTHER) ? OTHER_SYSTEM_PROMPT : SMALL_TALK_SYSTEM_PROMPT;
+                final String sys = (intent.getIntent() == IntentType.OTHER)
+                    ? prompt(PromptDefaults.KEY_OTHER, OTHER_SYSTEM_PROMPT)
+                    : prompt(PromptDefaults.KEY_SMALL_TALK, SMALL_TALK_SYSTEM_PROMPT);
                 final String q = request.getQuestion() != null ? request.getQuestion().trim() : "";
 
                 // 固定介绍：用分片发送模拟流式（避免额外 LLM 调用）
                 if (q.contains("你是谁") || q.contains("你是誰") || q.contains("你能做什么") || q.contains("你能做啥")
                     || q.contains("你可以做什么") || q.contains("你会什么")) {
 
-                    String answer = ASSISTANT_INTRO.trim();
+                    String answer = prompt(PromptDefaults.KEY_INTRO, ASSISTANT_INTRO).trim();
                     int chunkSize = 24;
                     for (int i = 0; i < answer.length(); i += chunkSize) {
                         String part = answer.substring(i, Math.min(answer.length(), i + chunkSize));
@@ -938,9 +958,10 @@ public class RagService {
             
             // 4. 判断模式
             boolean hasArticles = !highRelevanceResults.isEmpty();
-            boolean isFlexibleMode = "FLEXIBLE".equalsIgnoreCase(request.getMode());
-            log.info("查询模式: request_id={}, hasHighRelevanceArticles={}, isFlexibleMode={}", 
-                requestId, hasArticles, isFlexibleMode);
+            boolean flexibleEnabled = ragConfig.getFlexibleModeEnabled() == null ? true : Boolean.TRUE.equals(ragConfig.getFlexibleModeEnabled());
+            boolean isFlexibleMode = flexibleEnabled && "FLEXIBLE".equalsIgnoreCase(request.getMode());
+            log.info("查询模式: request_id={}, hasHighRelevanceArticles={}, isFlexibleMode={}, flexibleEnabled={}", 
+                requestId, hasArticles, isFlexibleMode, flexibleEnabled);
             
             // 5. 构建消息列表（包含历史对话）
             List<ChatCompletionRequest.ChatMessage> messages = new ArrayList<>();

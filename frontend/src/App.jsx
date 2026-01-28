@@ -13,6 +13,7 @@ import StudioRagSettings from './pages/studio/StudioRagSettings';
 import StudioRagLogs from './pages/studio/StudioRagLogs';
 import StudioRagLogDetail from './pages/studio/StudioRagLogDetail';
 import StudioChunks from './pages/studio/StudioChunks';
+import StudioPrompts from './pages/studio/StudioPrompts';
 import './App.css';
 
 function App() {
@@ -64,6 +65,7 @@ function App() {
             <Route path="/studio/rag-logs" element={<StudioRagLogs />} />
             <Route path="/studio/rag-logs/:requestId" element={<StudioRagLogDetail />} />
             <Route path="/studio/chunks" element={<StudioChunks />} />
+            <Route path="/studio/prompts" element={<StudioPrompts />} />
             <Route path="/studio/articles/new" element={<StudioArticleEdit />} />
             <Route path="/studio/articles/:id/edit" element={<StudioArticleEdit />} />
           </Routes>

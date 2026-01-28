@@ -162,8 +162,9 @@ function StudioArticleList() {
       <div className="studio-header">
         <h1>文章管理</h1>
         <div className="header-actions">
-          <button onClick={() => navigate('/studio/articles/new')}>新建文章</button>
           <button onClick={() => navigate('/studio/settings')} className="btn-info">RAG 配置</button>
+          <button onClick={() => navigate('/studio/prompts')} className="btn-info">提示词</button>
+          <button onClick={() => navigate('/studio/articles/new')}>新建文章</button>
           <button onClick={() => navigate('/studio/chunks')} className="btn-info">查看Chunks</button>
           <button
             onClick={handleReindexAll}

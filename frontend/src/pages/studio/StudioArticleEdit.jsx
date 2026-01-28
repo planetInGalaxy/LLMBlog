@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { API_URL, isApiSuccess } from '../../lib/api';
 import { handleStudioWriteResponse } from '../../lib/studioApi';
+import ToggleSwitch from '../../components/ToggleSwitch';
 
 function StudioArticleEdit() {
   const { id } = useParams();
@@ -128,17 +129,19 @@ function StudioArticleEdit() {
           onChange={(e) => setArticle({...article, tags: e.target.value})}
         />
       </div>
+      <ToggleSwitch
+        checked={regenerateSummary}
+        onChange={(e) => setRegenerateSummary(e.target.checked)}
+        label="保存后重新生成摘要"
+        hint="会覆盖现有摘要（适合内容大改后）"
+        disabled={loading}
+      />
+
       <div className="form-actions">
-        <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-          <input
-            type="checkbox"
-            checked={regenerateSummary}
-            onChange={(e) => setRegenerateSummary(e.target.checked)}
-          />
-          保存后重新生成摘要
-        </label>
-        <button onClick={handleSave}>保存草稿</button>
-        <button onClick={() => navigate('/studio/articles')}>取消</button>
+        <button onClick={handleSave} disabled={loading}>
+          {loading ? '保存中…' : '保存草稿'}
+        </button>
+        <button onClick={() => navigate('/studio/articles')} disabled={loading}>取消</button>
       </div>
     </div>
   );

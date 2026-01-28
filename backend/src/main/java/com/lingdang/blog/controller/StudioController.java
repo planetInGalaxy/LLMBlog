@@ -18,6 +18,8 @@ import com.lingdang.blog.service.RagConfigService;
 import com.lingdang.blog.service.RagReindexJobService;
 import com.lingdang.blog.repository.RagQueryHitRepository;
 import com.lingdang.blog.repository.RagQueryLogRepository;
+import com.lingdang.blog.dto.studio.PromptTemplateDTO;
+import com.lingdang.blog.service.PromptTemplateService;
 import jakarta.validation.Valid;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -49,6 +51,9 @@ public class StudioController {
 
     @Autowired
     private RagReindexJobService ragReindexJobService;
+
+    @Autowired
+    private PromptTemplateService promptTemplateService;
 
     @Autowired
     private RagQueryLogRepository ragQueryLogRepository;
@@ -304,6 +309,26 @@ public class StudioController {
     @GetMapping("/rag-config")
     public ResponseEntity<ApiResponse<RagConfigDTO>> getRagConfig() {
         return ResponseEntity.ok(ApiResponse.success(ragConfigService.getConfig()));
+    }
+
+    /**
+     * 获取所有提示词配置
+     */
+    @GetMapping("/prompts")
+    public ResponseEntity<ApiResponse<java.util.List<PromptTemplateDTO>>> listPrompts() {
+        return ResponseEntity.ok(ApiResponse.success(promptTemplateService.listAll()));
+    }
+
+    /**
+     * 更新某个提示词
+     */
+    @PutMapping("/prompts")
+    public ResponseEntity<ApiResponse<PromptTemplateDTO>> updatePrompt(@RequestBody PromptTemplateDTO dto) {
+        try {
+            return ResponseEntity.ok(ApiResponse.success("保存成功", promptTemplateService.update(dto)));
+        } catch (Exception e) {
+            return ResponseEntity.ok(ApiResponse.error(e.getMessage()));
+        }
     }
 
     /**

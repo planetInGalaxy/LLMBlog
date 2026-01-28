@@ -27,6 +27,7 @@ public class RagConfigService {
     private static final double DEFAULT_MIN_SCORE = 0.0;
     private static final int DEFAULT_CHUNK_SIZE = 900;
     private static final boolean DEFAULT_RETURN_CITATIONS = true;
+    private static final boolean DEFAULT_FLEXIBLE_MODE_ENABLED = true;
     private static final int DEFAULT_VECTOR_WEIGHT = 70;
     private static final int DEFAULT_BM25_WEIGHT = 30;
     private static final double DEFAULT_BM25_MAX = 15.0;
@@ -79,6 +80,9 @@ public class RagConfigService {
             if (update.getReturnCitations() != null) {
                 entity.setReturnCitations(update.getReturnCitations());
             }
+            if (update.getFlexibleModeEnabled() != null) {
+                entity.setFlexibleModeEnabled(update.getFlexibleModeEnabled());
+            }
             if (update.getVectorWeight() != null) {
                 entity.setVectorWeight(update.getVectorWeight());
             }
@@ -130,6 +134,7 @@ public class RagConfigService {
             if (update.getTopK() != null) next.setTopK(update.getTopK());
             if (update.getMinScore() != null) next.setMinScore(update.getMinScore());
             if (update.getReturnCitations() != null) next.setReturnCitations(update.getReturnCitations());
+            if (update.getFlexibleModeEnabled() != null) next.setFlexibleModeEnabled(update.getFlexibleModeEnabled());
             if (update.getVectorWeight() != null) next.setVectorWeight(update.getVectorWeight());
             if (update.getBm25Weight() != null) next.setBm25Weight(update.getBm25Weight());
             if (update.getBm25Max() != null) next.setBm25Max(update.getBm25Max());
@@ -141,6 +146,7 @@ public class RagConfigService {
             entity.setTopK(next.getTopK());
             entity.setMinScore(next.getMinScore());
             entity.setReturnCitations(next.getReturnCitations());
+            entity.setFlexibleModeEnabled(next.getFlexibleModeEnabled());
             entity.setVectorWeight(next.getVectorWeight());
             entity.setBm25Weight(next.getBm25Weight());
             entity.setBm25Max(next.getBm25Max());
@@ -205,6 +211,7 @@ public class RagConfigService {
         created.setMinScore(DEFAULT_MIN_SCORE);
         created.setChunkSize(DEFAULT_CHUNK_SIZE);
         created.setReturnCitations(DEFAULT_RETURN_CITATIONS);
+        created.setFlexibleModeEnabled(DEFAULT_FLEXIBLE_MODE_ENABLED);
         created.setVectorWeight(DEFAULT_VECTOR_WEIGHT);
         created.setBm25Weight(DEFAULT_BM25_WEIGHT);
         created.setBm25Max(DEFAULT_BM25_MAX);
@@ -218,6 +225,7 @@ public class RagConfigService {
         dto.setMinScore(entity.getMinScore() != null ? entity.getMinScore() : DEFAULT_MIN_SCORE);
         dto.setChunkSize(entity.getChunkSize() != null ? entity.getChunkSize() : DEFAULT_CHUNK_SIZE);
         dto.setReturnCitations(Boolean.TRUE.equals(entity.getReturnCitations()));
+        dto.setFlexibleModeEnabled(entity.getFlexibleModeEnabled() == null ? DEFAULT_FLEXIBLE_MODE_ENABLED : Boolean.TRUE.equals(entity.getFlexibleModeEnabled()));
 
         Integer vectorW = entity.getVectorWeight();
         Integer bm25W = entity.getBm25Weight();
@@ -265,6 +273,7 @@ public class RagConfigService {
         copy.setMinScore(source.getMinScore());
         copy.setChunkSize(source.getChunkSize());
         copy.setReturnCitations(source.getReturnCitations());
+        copy.setFlexibleModeEnabled(source.getFlexibleModeEnabled());
         copy.setVectorWeight(source.getVectorWeight());
         copy.setBm25Weight(source.getBm25Weight());
         copy.setBm25Max(source.getBm25Max());
