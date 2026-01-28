@@ -4,6 +4,7 @@ import { API_URL, isApiSuccess } from '../lib/api';
 
 function HomePage() {
   const [articles, setArticles] = useState([]);
+  const [showBackToTop, setShowBackToTop] = useState(false);
 
   useEffect(() => {
     const fetchArticles = async () => {
@@ -20,6 +21,19 @@ function HomePage() {
     };
     fetchArticles();
   }, []);
+
+  useEffect(() => {
+    const onScroll = () => {
+      setShowBackToTop(window.scrollY > 480);
+    };
+    onScroll();
+    window.addEventListener('scroll', onScroll, { passive: true });
+    return () => window.removeEventListener('scroll', onScroll);
+  }, []);
+
+  const scrollToTop = () => {
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
 
   const featured = useMemo(() => {
     if (!Array.isArray(articles) || articles.length === 0) return [];
@@ -179,19 +193,9 @@ function HomePage() {
         </div>
       </section>
 
-      {/* 温和 CTA */}
-      <section className="home-cta" aria-label="开始使用">
-        <h2>从这里开始（不绕路）</h2>
-        <p>
-          想快速建立体系：从精选文章开始。<br />
-          有具体问题：直接问助手（会引用到文章段落）。
-        </p>
-
-        <div className="home-cta-actions">
-          <Link to="/blog" className="btn btn-primary">从精选文章开始</Link>
-          <Link to="/assistant" className="btn btn-secondary">去问助手</Link>
-        </div>
-
+      {/* 联系方式 */}
+      <section className="home-cta" aria-label="联系方式">
+        <h2>联系我</h2>
         <p className="home-cta-contact">
           想获取更多干货：
           <a
@@ -204,6 +208,16 @@ function HomePage() {
           </a>
         </p>
       </section>
+
+      <button
+        type="button"
+        className={`back-to-top ${showBackToTop ? 'back-to-top--visible' : ''}`}
+        onClick={scrollToTop}
+        aria-label="返回顶部"
+        title="返回顶部"
+      >
+        ↑
+      </button>
     </div>
   );
 }
