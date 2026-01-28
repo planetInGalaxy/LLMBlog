@@ -20,6 +20,8 @@ import org.springframework.stereotype.Service;
 import java.util.*;
 import java.util.stream.Collectors;
 
+import co.elastic.clients.elasticsearch._types.query_dsl.Operator;
+
 @Slf4j
 @Service
 public class ArticleSearchService {
@@ -50,21 +52,44 @@ public class ArticleSearchService {
         try {
             int from = (p - 1) * ps;
 
+            final int qLen = query.length();
+
             SearchResponse<ChunkDocument> esResp = esClient.search(s -> s
                     .index(ElasticsearchInitializer.INDEX_ALIAS)
                     .trackTotalHits(t -> t.enabled(true))
                     .from(from)
                     .size(ps)
                     // 只搜已发布
-                    .query(qb -> qb
-                        .bool(b -> b
-                            .filter(f -> f.term(t -> t.field("status").value(ArticleStatus.PUBLISHED.name())))
-                            .must(m -> m.multiMatch(mm -> mm
+                    .query(qb -> qb.bool(b -> {
+                        b.filter(f -> f.term(t -> t.field("status").value(ArticleStatus.PUBLISHED.name())));
+
+                        // ✅ 搜索最佳实践：短查询要更“严格”，避免单字命中导致乱召回
+                        if (qLen <= 2) {
+                            // 1~2 字：优先短语匹配（phrase），更符合用户直觉
+                            b.must(m -> m.bool(bb -> bb
+                                .should(s1 -> s1.matchPhrase(mp -> mp.field("title").query(query).boost(5f)))
+                                .should(s2 -> s2.matchPhrase(mp -> mp.field("tags").query(query).boost(3f)))
+                                .should(s3 -> s3.matchPhrase(mp -> mp.field("chunkText").query(query)))
+                                .minimumShouldMatch("1")
+                            ));
+                        } else if (qLen <= 4) {
+                            // 3~4 字：用 AND，要求每个词都命中
+                            b.must(m -> m.multiMatch(mm -> mm
                                 .query(query)
                                 .fields("title^4", "tags^2", "chunkText")
-                            ))
-                        )
-                    )
+                                .operator(Operator.And)
+                            ));
+                        } else {
+                            // 5 字以上：用 minimum_should_match 控制召回宽松度
+                            b.must(m -> m.multiMatch(mm -> mm
+                                .query(query)
+                                .fields("title^4", "tags^2", "chunkText")
+                                .minimumShouldMatch("70%")
+                            ));
+                        }
+
+                        return b;
+                    }))
                     // 以 articleId 折叠，返回文章维度结果
                     .collapse(c -> c
                         .field("articleId")
