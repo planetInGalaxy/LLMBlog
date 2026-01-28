@@ -36,10 +36,10 @@
   margin-bottom: 1rem;
   line-height: 1.6;
   display: -webkit-box;
-  -webkit-line-clamp: 2;
+  -webkit-line-clamp: 4; /* 最多展示 4 行 */
   -webkit-box-orient: vertical;
   overflow: hidden;
-  min-height: calc(1.6em * 2);
+  min-height: calc(1.6em * 2); /* 至少展示 2 行 */
 }
 
 .article-card .meta {

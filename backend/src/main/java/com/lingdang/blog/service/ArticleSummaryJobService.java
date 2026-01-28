@@ -20,7 +20,7 @@ public class ArticleSummaryJobService {
 
     private static final int CONTENT_CHAR_LIMIT = 15000;
     private static final int SUMMARY_MIN_CHARS = 25;
-    private static final int SUMMARY_MAX_CHARS = 40;
+    private static final int SUMMARY_MAX_CHARS = 50;
 
     @Autowired
     private ArticleSummaryJobRepository jobRepository;
