@@ -1,79 +1,207 @@
+import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
+import { API_URL, isApiSuccess } from '../lib/api';
 
 function HomePage() {
+  const [articles, setArticles] = useState([]);
+
+  useEffect(() => {
+    const fetchArticles = async () => {
+      try {
+        const resp = await fetch(`${API_URL}/articles`);
+        const result = await resp.json();
+        if (isApiSuccess(result) && Array.isArray(result.data)) {
+          setArticles(result.data);
+        }
+      } catch (e) {
+        // 首页不阻塞：失败时保持静态内容
+        console.warn('首页获取文章列表失败:', e);
+      }
+    };
+    fetchArticles();
+  }, []);
+
+  const featured = useMemo(() => {
+    if (!Array.isArray(articles) || articles.length === 0) return [];
+    // /api/articles 默认是发布时间倒序，直接取前 5
+    return articles.slice(0, 5);
+  }, [articles]);
+
   return (
     <div className="home-page">
-      <div className="hero-section">
-        <h1>🔔 铃铛师兄大模型博客</h1>
-        <p>专注 AI 技术分享 + 智能学习助手</p>
-        <div className="hero-buttons">
-          <Link to="/blog" className="btn btn-primary">浏览文章</Link>
-          <Link to="/assistant" className="btn btn-secondary">AI 助手</Link>
-        </div>
-      </div>
-
-      {/* 关于介绍区 */}
-      <section className="about-section">
-        <div className="section-header">
-          <h2>关于铃铛师兄大模型</h2>
-        </div>
-        <div className="about-content">
-          <div className="about-card">
-            <h3>💡 专注领域</h3>
-            <p>
-              <strong>铃铛师兄大模型</strong>是一个专注于人工智能和大模型技术的专业博客平台。
-              我们致力于分享最新的AI技术动态、大模型应用实践、机器学习算法解析以及行业前沿见解。
+      {/* Hero */}
+      <section className="home-hero" aria-label="首页首屏">
+        <div className="home-hero-inner">
+          <div className="home-hero-left">
+            <h1>把大模型技术，变成你能拿到 offer 的能力</h1>
+            <p className="home-hero-subtitle">
+              这里有高质量技术文章 + 可引用的 AI 学习助手。<br />
+              不只讲原理，更讲怎么做、怎么调、怎么上线。
             </p>
+
+            <div className="home-hero-actions">
+              <Link to="/blog" className="btn btn-primary">开始学习（看文章）</Link>
+              <Link to="/assistant" className="btn btn-secondary">直接问助手</Link>
+            </div>
           </div>
 
-          <div className="about-card">
-            <h3>🎯 内容覆盖</h3>
-            <p>
-              在这里，您可以找到关于<strong>大语言模型（LLM）</strong>、<strong>生成式AI</strong>、
-              <strong>自然语言处理</strong>、<strong>RAG</strong>、<strong>Agent</strong>等领域的深度文章和技术教程。
-              我们不仅关注理论研究，更注重实际应用和工程实践。
-            </p>
-          </div>
-
-          <div className="about-card">
-            <h3>🚀 我们的使命</h3>
-            <p>
-              铃铛师兄大模型博客致力于成为AI技术爱好者和从业者的知识分享平台，
-              通过高质量的技术内容，推动AI技术在中国的发展和应用。
-              无论您是AI初学者还是资深工程师，都能在这里找到有价值的内容。
-            </p>
-          </div>
-        </div>
-
-        <div className="keywords-section">
-          <strong>核心关键词：</strong>
-          <div className="keyword-tags">
-            <span className="keyword-tag">大模型</span>
-            <span className="keyword-tag">AI技术</span>
-            <span className="keyword-tag">人工智能</span>
-            <span className="keyword-tag">RAG</span>
-            <span className="keyword-tag">Agent</span>
-            <span className="keyword-tag">自然语言处理</span>
-            <span className="keyword-tag">生成式AI</span>
-            <span className="keyword-tag">技术博客</span>
+          <div className="home-hero-right">
+            <div className="home-proof-card">
+              <div className="home-proof-title">你会在这里得到什么</div>
+              <ul className="home-proof-list">
+                <li>文章库驱动回答：引用到具体段落</li>
+                <li>RAG 可调参、可观测（Studio）</li>
+                <li>面向转型与面试：方法论 + 实战项目</li>
+              </ul>
+            </div>
           </div>
         </div>
       </section>
 
-      {/* 联系方式区 */}
-      <section className="contact-section">
-        <h3>📱 联系我们</h3>
-        <p className="contact-highlight">
-          请小红书搜索：
+      {/* 价值卡 */}
+      <section className="home-section" aria-label="立即获得">
+        <div className="home-section-header">
+          <h2>你能立刻获得什么</h2>
+          <p>先给你确定收益，再谈长期路线。</p>
+        </div>
+
+        <div className="home-cards">
+          <div className="home-card">
+            <h3>把“会做”讲成“能过面”的答案</h3>
+            <p>用工程视角讲清取舍、指标与风险，让面试官听懂你在做什么。</p>
+          </div>
+          <div className="home-card">
+            <h3>RAG / Agent：从概念到可落地实现</h3>
+            <p>切分、索引、召回、重排、调参，一条龙做成可复用能力。</p>
+          </div>
+          <div className="home-card">
+            <h3>一条不绕弯的学习路径</h3>
+            <p>从基础 → RAG → Agent → 工程化，把能力一步步拼起来。</p>
+          </div>
+        </div>
+      </section>
+
+      {/* 精选文章 */}
+      <section className="home-section" aria-label="精选文章">
+        <div className="home-section-header">
+          <h2>精选文章（建议从这里开始）</h2>
+          <p>如果你只读 3 篇，先从下面开始，最快建立体系。</p>
+        </div>
+
+        {featured.length > 0 ? (
+          <div className="home-featured-grid">
+            {featured.map((a) => (
+              <Link key={a.id} to={`/blog/${a.slug}`} className="home-featured-card">
+                <div className="home-featured-title">{a.title}</div>
+                <div className="home-featured-meta">
+                  <span>{new Date(a.publishedAt).toLocaleDateString()}</span>
+                  <span>{a.viewCount} 次浏览</span>
+                </div>
+              </Link>
+            ))}
+          </div>
+        ) : (
+          <div className="home-featured-empty">
+            <p>正在加载精选内容…</p>
+            <Link to="/blog" className="btn btn-primary">去文章列表</Link>
+          </div>
+        )}
+
+        <div className="home-more">
+          <Link to="/blog" className="home-more-link">查看更多文章 →</Link>
+        </div>
+      </section>
+
+      {/* 学习路线 */}
+      <section className="home-section" aria-label="学习路线">
+        <div className="home-section-header">
+          <h2>学习路径（从 0 到可落地）</h2>
+          <p>把知识变成能力：能做出来，也能讲清楚。</p>
+        </div>
+
+        <div className="home-steps">
+          <div className="home-step">
+            <div className="home-step-index">1</div>
+            <div className="home-step-body">
+              <div className="home-step-title">基础知识补齐</div>
+              <div className="home-step-desc">LLM 基础、提示词、常见误区与边界。</div>
+            </div>
+          </div>
+          <div className="home-step">
+            <div className="home-step-index">2</div>
+            <div className="home-step-body">
+              <div className="home-step-title">RAG：召回、重排、引用</div>
+              <div className="home-step-desc">降低幻觉、提升可控性，建立“可解释的答案”。</div>
+            </div>
+          </div>
+          <div className="home-step">
+            <div className="home-step-index">3</div>
+            <div className="home-step-body">
+              <div className="home-step-title">Agent：工具调用与流程编排</div>
+              <div className="home-step-desc">从“聊天”走向“做事”，把能力接入真实系统。</div>
+            </div>
+          </div>
+          <div className="home-step">
+            <div className="home-step-index">4</div>
+            <div className="home-step-body">
+              <div className="home-step-title">工程化与可观测</div>
+              <div className="home-step-desc">上线、稳定、可调参、可复盘，让效果持续迭代。</div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* 作者与信任 */}
+      <section className="home-section" aria-label="关于我">
+        <div className="home-section-header">
+          <h2>关于我</h2>
+        </div>
+
+        <div className="home-about-grid">
+          <div className="home-about-card">
+            <h3>客观背景</h3>
+            <p>985 本科，人工智能专业毕业。大厂面试官 / 大模型开发工程师。</p>
+          </div>
+
+          <div className="home-about-card">
+            <h3>我更关注什么</h3>
+            <p>把知识变成可复用的能力，把项目做成能讲清楚的面试案例，而不是刷概念。</p>
+          </div>
+
+          <div className="home-about-card">
+            <h3>你可能适合这里</h3>
+            <ul>
+              <li>校招 / 社招：想转向大模型方向</li>
+              <li>后端 / 前端 / 测试：想补齐知识并做出可落地项目</li>
+              <li>想系统提升简历与面试表达</li>
+            </ul>
+          </div>
+        </div>
+      </section>
+
+      {/* 温和 CTA */}
+      <section className="home-cta" aria-label="开始使用">
+        <h2>从这里开始（不绕路）</h2>
+        <p>
+          想快速建立体系：从精选文章开始。<br />
+          有具体问题：直接问助手（会引用到文章段落）。
+        </p>
+
+        <div className="home-cta-actions">
+          <Link to="/blog" className="btn btn-primary">从精选文章开始</Link>
+          <Link to="/assistant" className="btn btn-secondary">去问助手</Link>
+        </div>
+
+        <p className="home-cta-contact">
+          想获取更多干货：
           <a
-            className="contact-link"
+            className="home-cta-link"
             href="https://xhslink.com/m/7hzXlmKpfXR"
             target="_blank"
             rel="noopener noreferrer"
           >
-            <strong>铃铛师兄大模型求职辅导</strong>
+            铃铛师兄大模型求职辅导
           </a>
-          ，获取更多干货
         </p>
       </section>
     </div>
