@@ -4,10 +4,13 @@ import com.lingdang.blog.config.ElasticsearchInitializer;
 import com.lingdang.blog.dto.ApiResponse;
 import com.lingdang.blog.dto.assistant.RagConfigDTO;
 import com.lingdang.blog.dto.article.ArticleDTO;
+import com.lingdang.blog.dto.article.StudioArticleUpsertRequest;
 import com.lingdang.blog.service.ArticleService;
+import com.lingdang.blog.service.ArticleSummaryJobService;
 import com.lingdang.blog.service.IndexPipelineService;
 import com.lingdang.blog.service.ArticleChunkService;
 import com.lingdang.blog.dto.article.ArticleChunkDTO;
+import com.lingdang.blog.model.ArticleSummaryJob;
 import com.lingdang.blog.model.RagQueryHit;
 import com.lingdang.blog.model.RagQueryLog;
 import com.lingdang.blog.model.RagReindexJob;
@@ -55,6 +58,9 @@ public class StudioController {
 
     @Autowired
     private ArticleChunkService articleChunkService;
+
+    @Autowired
+    private ArticleSummaryJobService articleSummaryJobService;
     
     /**
      * 获取所有文章（含草稿）
@@ -83,9 +89,16 @@ public class StudioController {
      * 创建文章
      */
     @PostMapping("/articles")
-    public ResponseEntity<ApiResponse<ArticleDTO>> createArticle(@Valid @RequestBody ArticleDTO dto) {
+    public ResponseEntity<ApiResponse<ArticleDTO>> createArticle(@Valid @RequestBody StudioArticleUpsertRequest dto) {
         try {
             ArticleDTO created = articleService.createArticle(dto);
+
+            // summary 为空时自动补齐
+            boolean summaryEmpty = created.getSummary() == null || created.getSummary().trim().isEmpty();
+            if (summaryEmpty) {
+                articleSummaryJobService.submit(created.getId(), ArticleSummaryJob.Mode.FILL_IF_EMPTY);
+            }
+
             return ResponseEntity.ok(ApiResponse.success("文章创建成功", created));
         } catch (Exception e) {
             return ResponseEntity.ok(ApiResponse.error(e.getMessage()));
@@ -98,9 +111,22 @@ public class StudioController {
     @PutMapping("/articles/{id}")
     public ResponseEntity<ApiResponse<ArticleDTO>> updateArticle(
             @PathVariable Long id,
-            @Valid @RequestBody ArticleDTO dto) {
+            @Valid @RequestBody StudioArticleUpsertRequest dto) {
         try {
             ArticleDTO updated = articleService.updateArticle(id, dto);
+
+            boolean summaryEmpty = updated.getSummary() == null || updated.getSummary().trim().isEmpty();
+            boolean regenerate = Boolean.TRUE.equals(dto.getRegenerateSummary());
+
+            // 1) summary 为空：自动补齐
+            if (summaryEmpty) {
+                articleSummaryJobService.submit(id, ArticleSummaryJob.Mode.FILL_IF_EMPTY);
+            }
+
+            // 2) 显式开关：重生成摘要（允许覆盖）
+            if (regenerate) {
+                articleSummaryJobService.submit(id, ArticleSummaryJob.Mode.REGENERATE);
+            }
             
             // 如果是已发布状态，强制触发重新索引（因为可能修改了标题、标签等元数据）
             if ("PUBLISHED".equals(updated.getStatus())) {

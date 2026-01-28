@@ -155,6 +155,18 @@
   font-size: 0.9rem;
 }
 
+.home-featured-summary {
+  margin-top: 0.65rem;
+  color: var(--text-light);
+  line-height: 1.6;
+  font-size: 0.98rem;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  min-height: calc(1.6em * 2);
+}
+
 .home-featured-empty {
   text-align: center;
   color: var(--text-light);

@@ -13,6 +13,7 @@ function StudioArticleEdit() {
     tags: '',
     author: '铃铛师兄'
   });
+  const [regenerateSummary, setRegenerateSummary] = useState(false);
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
 
@@ -63,7 +64,10 @@ function StudioArticleEdit() {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify(article)
+        body: JSON.stringify({
+          ...article,
+          regenerateSummary
+        })
       });
       const result = await handleStudioWriteResponse(response, navigate);
       if (!result) return;
@@ -125,6 +129,14 @@ function StudioArticleEdit() {
         />
       </div>
       <div className="form-actions">
+        <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+          <input
+            type="checkbox"
+            checked={regenerateSummary}
+            onChange={(e) => setRegenerateSummary(e.target.checked)}
+          />
+          保存后重新生成摘要
+        </label>
         <button onClick={handleSave}>保存草稿</button>
         <button onClick={() => navigate('/studio/articles')}>取消</button>
       </div>

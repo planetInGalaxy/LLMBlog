@@ -113,6 +113,7 @@ function HomePage() {
                   <span>{new Date(a.publishedAt).toLocaleDateString()}</span>
                   <span>{a.viewCount} 次浏览</span>
                 </div>
+                <div className="home-featured-summary">{(a.summary && a.summary.trim()) ? a.summary : '...'}</div>
               </Link>
             ))}
           </div>
