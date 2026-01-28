@@ -40,7 +40,7 @@ function HomePage() {
     // 精选文章：取阅读量最高的 3 篇（降序）
     return [...articles]
       .sort((a, b) => (Number(b.viewCount || 0) - Number(a.viewCount || 0)))
-      .slice(0, 3);
+      .slice(0, 4);
   }, [articles]);
 
   return (
@@ -100,8 +100,8 @@ function HomePage() {
       {/* 精选文章 */}
       <section className="home-section" aria-label="精选文章">
         <div className="home-section-header">
-          <h2>精选文章（阅读量最高 Top 3）</h2>
-          <p>先从这 3 篇开始，最快建立体系。</p>
+          <h2>精选文章（阅读量最高 Top 4）</h2>
+          <p>先从这 4 篇开始，最快建立体系。</p>
         </div>
 
         {featured.length > 0 ? (

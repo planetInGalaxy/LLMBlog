@@ -20,6 +20,12 @@ function App() {
   const isAssistant = location.pathname.startsWith('/assistant');
   const isStudioActive = location.pathname.startsWith('/studio');
 
+  // 路由切换后回到顶部（避免从首页进入助手时保留滚动位置导致“下滑一下”）
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    window.scrollTo(0, 0);
+  }, [location.pathname]);
+
   useEffect(() => {
     if (typeof window === 'undefined') return undefined;
 

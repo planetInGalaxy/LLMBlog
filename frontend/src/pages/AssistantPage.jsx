@@ -8,14 +8,14 @@ import { API_URL } from '../lib/api';
 const ASSISTANT_REQUEST_TIMEOUT_MS = 60000;
 const CITATION_QUOTE_COLLAPSE_THRESHOLD = 140;
 
-function CitationItem({ cite, index }) {
+function CitationItem({ cite, index, highlighted }) {
   const quoteText = (cite?.quote || '').trim();
   const shouldClamp = quoteText.length > CITATION_QUOTE_COLLAPSE_THRESHOLD;
   const [expanded, setExpanded] = useState(false);
   const hasScore = typeof cite?.score === 'number' && !Number.isNaN(cite.score);
 
   return (
-    <div className="citation-card">
+    <div className={`citation-card${highlighted ? ' is-highlight' : ''}`}>
       <span className="citation-ref-index">[{cite.refIndex || (index + 1)}]</span>
       <a href={cite.url} target="_blank" rel="noopener noreferrer">
         <strong>{cite.title}</strong>
@@ -48,6 +48,8 @@ function AssistantPage() {
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
+  const [highlightedCite, setHighlightedCite] = useState(null); // { msgIndex, refIndex }
+  const citationsDetailsRef = useRef(new Map());
   const messagesEndRef = useRef(null);
   const messagesContainerRef = useRef(null);
   const scrollRafRef = useRef(null);
@@ -56,6 +58,20 @@ function AssistantPage() {
   const activeAssistantIndexRef = useRef(null);
   const activeRequestIdRef = useRef(0);
   const abortReasonRef = useRef(null);
+
+  const toSup = (n) => {
+    const map = {
+      '0': '⁰', '1': '¹', '2': '²', '3': '³', '4': '⁴',
+      '5': '⁵', '6': '⁶', '7': '⁷', '8': '⁸', '9': '⁹'
+    };
+    return String(n).split('').map(ch => map[ch] || ch).join('');
+  };
+
+  // 把回答里的 [1][2]… 转成可点击的“角标链接”，用于跳到参考文章
+  const decorateCitationMarks = (text) => {
+    if (!text) return text;
+    return String(text).replace(/\[(\d{1,3})\]/g, (_, n) => `[${toSup(n)}](#cite-${n})`);
+  };
 
   // 规范化 Markdown：修复流式输出导致的换行缺失问题（避免把多个标题/列表粘到一行）
   // 只处理代码块之外的内容，尽量不影响 ``` fenced code block
@@ -431,6 +447,32 @@ function AssistantPage() {
                                 </code>
                               );
                             },
+                            a: ({ href, children, ...props }) => {
+                              if (href && String(href).startsWith('#cite-')) {
+                                const refIndex = String(href).replace('#cite-', '');
+                                return (
+                                  <a
+                                    href={href}
+                                    {...props}
+                                    onClick={(e) => {
+                                      e.preventDefault();
+                                      const detailsEl = citationsDetailsRef.current.get(idx);
+                                      if (detailsEl) {
+                                        detailsEl.open = true;
+                                        detailsEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                                        setHighlightedCite({ msgIndex: idx, refIndex });
+                                        window.setTimeout(() => setHighlightedCite(null), 1500);
+                                      }
+                                    }}
+                                    className="citation-inline"
+                                    aria-label={`引用 ${refIndex}`}
+                                  >
+                                    {children}
+                                  </a>
+                                );
+                              }
+                              return <a href={href} {...props} target="_blank" rel="noopener noreferrer">{children}</a>;
+                            },
                             // 确保段落、标题等元素正确渲染
                             p: ({children}) => <p>{children}</p>,
                             h1: ({children}) => <h1>{children}</h1>,
@@ -443,12 +485,17 @@ function AssistantPage() {
                             em: ({children}) => <em>{children}</em>,
                           }}
                         >
-                          {normalizeMarkdown(msg.content || '思考中...')}
+                          {decorateCitationMarks(normalizeMarkdown(msg.content || '思考中...'))}
                         </ReactMarkdown>
                       </div>
 
                       {msg.citations && msg.citations.length > 0 && (
-                        <details className="citations">
+                        <details
+                          className="citations"
+                          ref={(el) => {
+                            if (el) citationsDetailsRef.current.set(idx, el);
+                          }}
+                        >
                           <summary>📚 参考文章 ({msg.citations.length})</summary>
                           <div className="citations-content">
                             {msg.citations.map((cite, i) => (
@@ -456,6 +503,11 @@ function AssistantPage() {
                                 key={cite.chunkId || `${idx}-cite-${i}`}
                                 cite={cite}
                                 index={i}
+                                highlighted={
+                                  highlightedCite &&
+                                  highlightedCite.msgIndex === idx &&
+                                  String(highlightedCite.refIndex) === String(cite.refIndex || (i + 1))
+                                }
                               />
                             ))}
                           </div>
