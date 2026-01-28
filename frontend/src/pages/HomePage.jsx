@@ -37,8 +37,10 @@ function HomePage() {
 
   const featured = useMemo(() => {
     if (!Array.isArray(articles) || articles.length === 0) return [];
-    // /api/articles 默认是发布时间倒序，直接取前 5
-    return articles.slice(0, 5);
+    // 精选文章：取阅读量最高的 3 篇（降序）
+    return [...articles]
+      .sort((a, b) => (Number(b.viewCount || 0) - Number(a.viewCount || 0)))
+      .slice(0, 3);
   }, [articles]);
 
   return (
@@ -98,8 +100,8 @@ function HomePage() {
       {/* 精选文章 */}
       <section className="home-section" aria-label="精选文章">
         <div className="home-section-header">
-          <h2>精选文章（建议从这里开始）</h2>
-          <p>如果你只读 3 篇，先从下面开始，最快建立体系。</p>
+          <h2>精选文章（阅读量最高 Top 3）</h2>
+          <p>先从这 3 篇开始，最快建立体系。</p>
         </div>
 
         {featured.length > 0 ? (
